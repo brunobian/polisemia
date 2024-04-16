@@ -4,7 +4,7 @@ import torch
 import pandas as pd
 from tqdm import tqdm
 
-m = "GPT2"#"GPT2"#
+m = "GPT2"#"Llama2"#
 
 if m == "GPT2":
     ruta = "/data/brunobian/Documents/Repos/Repos_Analisis/awdlstm-cloze-task/data/models/clm-spanish"
@@ -41,7 +41,7 @@ for iR,r in tqdm(df.iterrows()):
             if m == "GPT2":
                 targ_ids = tokenizer.encode(" " + target) # GPT
                 sig_ids  = tokenizer.encode(" " + s, return_tensors="pt").to('cuda')
-                sig_ids_list= sig_ids[0].tolist() 
+                sig_ids_list= sig_ids[0].tolist()  # si la palabra del significado tiene mas de un token, me quedo con el primero
                 
             elif m== "Llama2":
                 targ_ids = tokenizer.encode(target)[1:] # Llama
