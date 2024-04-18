@@ -7,6 +7,7 @@ import sys
 from datasets import Dataset, DatasetDict, load_dataset
 import numpy as np
 from google.colab import drive
+import mwparserfromhell
 drive.mount('/content/drive')
 
 
