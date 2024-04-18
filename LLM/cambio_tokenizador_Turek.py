@@ -49,7 +49,9 @@ local_dataset_path = '/content/drive/My Drive/Tesis/wikitext_dataset'
 wikitext_dataset = load_from_disk(local_dataset_path)
 # Build up vocabulary
 vocab = set()
-for row in wikitext_dataset['train']:
+
+# Iterate through each row in the dataset
+for row in wikitext_dataset:
     words = row['text'].split(' ')
     vocab.update(words)
 vocab = sorted(list(vocab))
