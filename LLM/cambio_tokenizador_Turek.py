@@ -10,13 +10,16 @@ from pathlib import Path
 import pickle
 import sys
 
-from datasets import Dataset, DatasetDict, load_dataset
+from datasets import Dataset, DatasetDict, load_dataset, load_from_disk
 import numpy as np
 from transformers import Trainer, TrainingArguments, AutoTokenizer, AutoModelForCausalLM
 from transformers import TrainerCallback
 import torch
 from tqdm import tqdm
 import mwparserfromhell
+
+from google.colab import drive
+drive.mount('/content/drive')
 
 
 # TODO: use existing implementation of word-level tokenization, e.g.
@@ -39,8 +42,11 @@ CHECKPOINT = "/data/brunobian/Documents/Repos/Repos_Analisis/awdlstm-cloze-task/
 UNK = '<unk>'
 BLOCK = args.tgt_len+1 # this is actually the length of "BPTT", in tokens
 
-wikitext_dataset = load_dataset("wikipedia", language="es", date="20240401")
+# Specify the path to the "Tesis" folder in your Google Drive
+local_dataset_path = '/content/drive/My Drive/Tesis/wikitext_dataset'
 
+# Load the dataset from local storage
+wikitext_dataset = load_from_disk(local_dataset_path)
 # Build up vocabulary
 vocab = set()
 for row in wikitext_dataset['train']:
@@ -122,7 +128,10 @@ class save_callback(TrainerCallback):
         else: control.should_save = False
         print(state.epoch, control.should_save)
 
-model_save_path = Path(f'models/{CHECKPOINT}_word_stimulidb+reddit' + (args.desc or ''))
+#model_save_path = Path(f'models/{CHECKPOINT}_word_stimulidb+reddit' + (args.desc or ''))
+model_save_path = Path('/content/drive/My Drive/Tesis/model_chekpoints/' + CHECKPOINT + '_word_stimulidb+reddit' + (args.desc or ''))
+model_save_path.mkdir(parents=True, exist_ok=True)
+
 
 # Save the new tokenizer
 tokenizer_path = model_save_path / 'tokenizer'
