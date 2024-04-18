@@ -118,7 +118,7 @@ print(model.lm_head.weight.data)
 '''callback to save every 10 epochs'''
 class save_callback(TrainerCallback):
     def on_epoch_end(self, args, state, control, **kwargs):
-        if state.epoch % 10 == 0: control.should_save = True
+        if state.epoch % 1 == 0: control.should_save = True
         else: control.should_save = False
         print(state.epoch, control.should_save)
 
