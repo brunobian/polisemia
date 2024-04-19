@@ -12,7 +12,12 @@ import sys
 
 from datasets import Dataset, DatasetDict, load_dataset, load_from_disk
 import numpy as np
-from transformers import Trainer, TrainingArguments, AutoTokenizer, AutoModelForCausalLM
+from transformers import (Trainer, 
+                        TrainingArguments, 
+                        AutoTokenizer, 
+                        AutoModelForCausalLM,
+                        GPT2LMHeadModel,
+                        GPT2Tokenizer)
 from transformers import TrainerCallback
 import torch
 from tqdm import tqdm
@@ -99,8 +104,10 @@ print(dataset)
 lm_datasets = dataset
 
 # load pretrained model
-model = AutoModelForCausalLM.from_pretrained(CHECKPOINT, device_map="auto")
-tokenizer = AutoTokenizer.from_pretrained(CHECKPOINT, use_fast=True)
+#model = AutoModelForCausalLM.from_pretrained(CHECKPOINT, device_map="auto")
+#tokenizer = AutoTokenizer.from_pretrained(CHECKPOINT, use_fast=True)
+model = GPT2LMHeadModel.from_pretrained('DeepESP/gpt2-spanish')
+tokenizer = GPT2Tokenizer.from_pretrained('DeepESP/gpt2-spanish', use_fast= True)
 
 # -- INICIALIZA LOS EMBEDDINGS DE LAS PALABRAS NUEVAS CON EL PROMEDIO DE LOS TOKENS SUBPALABRA ORIGINALES --
 # interpolate BPE
