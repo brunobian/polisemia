@@ -3,8 +3,16 @@ from torch.nn import functional as f
 import torch
 import pandas as pd
 from tqdm import tqdm
+import pickle
 
-m = "GPT2"#"Llama2"#
+from tokenizers import Tokenizer
+from tokenizers.models import WordLevel
+from tokenizers.pre_tokenizers import Whitespace, Punctuation, Sequence
+from tokenizers.processors import TemplateProcessing
+
+
+
+m = "GPT2_wordlevel"#"Llama2"#
 
 if m == "GPT2":
     ruta = "/data/brunobian/Documents/Repos/Repos_Analisis/awdlstm-cloze-task/data/models/clm-spanish"
@@ -15,6 +23,23 @@ elif m== "Llama2":
     #model = AutoModelForCausalLM.from_pretrained(ruta, device_map="auto",load_in_8bit=True)    
     model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-2-13b-hf", device_map="auto",load_in_8bit=True,cache_dir="/data/brunobian/languageModels/")    
     tokenizer = LlamaTokenizerFast.from_pretrained(ruta)                            
+elif m == "GPT2_wordlevel":
+    tokenizer_dict_path = '/data/brunobian/Documents/Repos/Repos_Analisis/polisemia/LLM/models/data/brunobian/Documents/Repos/Repos_Analisis/awdlstm-cloze-task/data/models/clm-spanish_word_stimulidb+reddit/tokenizer/token_dict.pkl'
+    ruta = '/data/brunobian/Documents/Repos/Repos_Analisis/polisemia/LLM/models/data/brunobian/Documents/Repos/Repos_Analisis/awdlstm-cloze-task/data/models/clm-spanish_word_stimulidb+reddit/checkpoint-29160'
+    model = AutoModelForCausalLM.from_pretrained(ruta).to('cuda')
+    try:
+        with open(tokenizer_dict_path, 'rb') as tokenizer_file:
+            tokenizer_dict = pickle.load(tokenizer_file)
+            word2int = tokenizer_dict['word2int']
+            int2word = tokenizer_dict['int2word']
+            unk_token = tokenizer_dict['UNK']
+    except Exception as e:
+        print(f"Failed to load tokenizer dictionary: {e}")
+
+    tokenizer = Tokenizer(WordLevel(vocab = word2int, unk_token = unk_token))
+    tokenizer.pre_tokenizer = Sequence([Punctuation('removed'), Whitespace()])
+
+
 else:
     print("modelo incorrecto")
     
@@ -32,11 +57,12 @@ for iR,r in tqdm(df.iterrows()):
     for c in context:
         sims = []
         for s in sig:
-            pregunta = "El significado de este texto está asoacido a " + s + ""
             pregunta = "En la oración anterior el significado de la palabra " + target + " está asoacido a " + s + "."
-            query = c + " " + oracion + " " + pregunta
             query = c + " " + oracion + "."
-            text_ids = tokenizer.encode(query, return_tensors="pt").to('cuda') 
+            if m == "GPT2_wordlevel":
+                text_ids = torch.tensor([tokenizer.encode(query).ids]).to('cuda')
+            else:
+                text_ids = tokenizer.encode(query, return_tensors="pt").to('cuda') 
             
             if m == "GPT2":
                 targ_ids = tokenizer.encode(" " + target) # GPT
@@ -48,7 +74,11 @@ for iR,r in tqdm(df.iterrows()):
                 sig_ids  = tokenizer.encode(s, return_tensors="pt").to('cuda')
                 sig_ids  = sig_ids[0,1:]  # Saco el primer elemento que es <s>
                 sig_ids_list= sig_ids.tolist() 
-
+            elif m == "GPT2_wordlevel":
+                targ_ids = tokenizer.encode(target) # GPT
+                sig_ids  = torch.tensor([tokenizer.encode(s).ids]).to('cuda')
+                sig_ids_list= sig_ids.tolist()  # si la palabra del significado tiene mas de un token, me quedo con el primero
+ 
             # Busco las posiciones del target en el texto
             text_ids_list = text_ids[0].tolist()
             for i in range(len(text_ids_list)):
@@ -77,6 +107,8 @@ for iR,r in tqdm(df.iterrows()):
                 sig_embeddings = model.transformer.wte(sig_ids[0])
             elif m == "Llama2":
                 sig_embeddings = model.get_input_embeddings().weight[sig_ids]
+            elif m == "GPT2_wordlevel":
+                sig_embeddings = model.transformer.wte(sig_ids[0])
 
 
             # Corro el modelo para el significado
@@ -103,4 +135,5 @@ for i,p in enumerate(all_sesgos):
 
 import pandas as pd
 df=pd.DataFrame(df)
-df.to_csv("distancias.csv")
+#df.to_csv("distancias.csv")
+df.to_csv("distancias_nuevo_modelo.csv")
