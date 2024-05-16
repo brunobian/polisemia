@@ -141,6 +141,7 @@ import pandas as pd
 df=pd.DataFrame(df)
 #df.to_csv("distancias.csv")
 df.to_csv("distancias_nuevo_modelo.csv")"""
+
 from transformers import LlamaTokenizerFast,AutoModelForCausalLM,GPT2Tokenizer  
 from torch.nn import functional as f 
 import torch
@@ -202,24 +203,27 @@ def tokenize(text, tokenizer, model_type):
         text_ids = tokenizer.encode(text, return_tensors="pt").to('cuda') 
     return text_ids
 
-def find_target(text_ids, target, sig, model_type, tokenizer):
-    if model_type == "GPT2":
-        targ_ids = tokenizer.encode(" " + target) # GPT
-        # TODO: leer como funciona el encode si sig fuese una lista
-        sig_ids  = tokenizer.encode(" " + sig, return_tensors="pt").to('cuda') 
-        sig_ids_list= sig_ids[0].tolist()  # si la palabra del significado tiene mas de un token, me quedo con el primero
+def find_target(text_ids, target, lista_sig, model_type, tokenizer):
+    list_sig_ids = []
+    for sig in lista_sig:
+        if model_type == "GPT2":
+            targ_ids = tokenizer.encode(" " + target) # GPT
+            # TODO: leer como funciona el encode si sig fuese una lista
+            sig_ids  = tokenizer.encode(" " + sig, return_tensors="pt").to('cuda') 
+            sig_ids_list= sig_ids[0].tolist()  # si la palabra del significado tiene mas de un token, me quedo con el primero
         
-    elif model_type== "Llama2":
-        targ_ids = tokenizer.encode(target)[1:] # Llama
-        sig_ids  = tokenizer.encode(sig, return_tensors="pt").to('cuda')
-        sig_ids  = sig_ids[0,1:]  # Saco el primer elemento que es <s>
-        sig_ids_list= sig_ids.tolist() 
+        elif model_type== "Llama2":
+            targ_ids = tokenizer.encode(target)[1:] # Llama
+            sig_ids  = tokenizer.encode(sig, return_tensors="pt").to('cuda')
+            sig_ids  = sig_ids[0,1:]  # Saco el primer elemento que es <s>
+            sig_ids_list= sig_ids.tolist() 
 
-    elif model_type == "GPT2_wordlevel":
-        targ_ids = tokenizer.encode(target) # GPT
-        sig_ids  = torch.tensor([tokenizer.encode(sig).ids]).to('cuda')
-        sig_ids_list= sig_ids.tolist()  # si la palabra del significado tiene mas de un token, me quedo con el primero
-    
+        elif model_type == "GPT2_wordlevel":
+            targ_ids = tokenizer.encode(target) # GPT
+            sig_ids  = torch.tensor([tokenizer.encode(sig).ids]).to('cuda')
+            sig_ids_list= sig_ids.tolist()  # si la palabra del significado tiene mas de un token, me quedo con el primero
+        list_sig_ids.append(sig_ids)
+        
     # Busco las posiciones del target en el texto
     text_ids_list = text_ids[0].tolist()
     for i in range(len(text_ids_list)):
@@ -227,7 +231,7 @@ def find_target(text_ids, target, sig, model_type, tokenizer):
             break
     ids_target_in_text = list(range(i,i+len(targ_ids)))
     #print(tokenizer.decode(text_ids[ids_target_in_text]))
-    return sig_ids, text_ids_list, sig_ids_list, ids_target_in_text
+    return list_sig_ids, ids_target_in_text
 
 def find_significado(text_ids, text_ids_list, sig_ids_list):
     #Busco las posiciones del significado en el texto
@@ -292,20 +296,20 @@ def get_diference_target_sig(target_embeddings, sig_embeddings):
 
 def get_diference_multiple_context(list_sig_y_contexto, target, oracion, model_type, model, tokenizer, layers):
     sesgo = []
-    for s,c in list_sig_y_contexto:
-        pregunta = "En la oración anterior el significado de la palabra " + target + " está asoacido a " + s + "." # TODO: Ver cuando se usaria esto
+    for s, c in list_sig_y_contexto:
+        #pregunta = "En la oración anterior el significado de la palabra " + target + " está asoacido a " + s + "." # TODO: Ver cuando se usaria esto
         query = get_query(c, oracion)
         text_ids = tokenize(query, tokenizer, model_type)
-        sig_ids, text_ids_list, sig_ids_list, ids_target_in_text = find_target(text_ids, target, s, model_type, tokenizer) # TODO: No esta en uso find_significado, si lo saco, eliminar lo que devuelvo y no se usa
-        #find_significado(text_ids, text_ids_list, sig_ids_list) # TODO: No esta en uso find_significado, estaba comentado, ver si lo dejo o lo saco
+        sig_ids, ids_target_in_text = find_target(text_ids, target, s, model_type, tokenizer) # TODO: No esta en uso find_significado, si lo saco, eliminar lo que devuelvo y no se usa
+        #find_significado(text_ids, text_ids[0].tolist(), sig_ids.tolist()) # No esta en uso find_significado, estaba comentado, ver si lo dejo o lo saco
         sig_embeddings = get_sig_embedding(model, model_type, sig_ids)
         hidden_state = instance_model(text_ids, model) 
-        target_embeddings = []
         dist = []
         for layer in layers:
-            target_embeddings.append(extract_embedding_from_layer(hidden_state, ids_target_in_text, layer))
-            dist = get_diference_target_sig(target_embeddings, sig_embeddings)
-            sesgo.append(dist)
+            target_embeddings = extract_embedding_from_layer(hidden_state, ids_target_in_text, layer)
+            dist.append(get_diference_target_sig(target_embeddings, sig_embeddings))
+        promedio_dist = sum(dist)/len(dist)
+        sesgo.append(promedio_dist)
     return sesgo
 
 def get_sesgo_por_fila(row, layers):
@@ -315,31 +319,30 @@ def get_sesgo_por_fila(row, layers):
     #    sesgo.append(sims)
     #    all_sesgos.append([sesgo[0], [sesgo[1][0], sesgo[2][1]]])
     #TODO: Revisar si se esta llenando el all_sesgos y se esta devolviendo modificado
-    indTarget, _, target, _, oracion, signif1, _, contexto1, signif2, _, contexto2, _, _, contextoAmbiguo, _ = row
-    sig     = [signif1.lower().split(","), signif2.lower().split(",")] 
-    context = [contextoAmbiguo, contexto1, contexto2]
+    sig     = [row.significado1.lower().split(","), row.significado2.lower().split(",")] 
+    context = [row.Contexto3, row.Contexto1, row.Contexto2]
 
     #TODO: Ver en que momento pueden sernos utiles estos titulos y pasarlo a ese lugar
-    titulos =      ["sesgoBase1",        "sesgoGen1",         "sesgoBase2",        "sesgoGen2" ]
     iterar_sobre = [(sig[0],context[0]), (sig[0],context[1]), (sig[1],context[0]), (sig[1],context[2])]
      
-    return get_diference_multiple_context(iterar_sobre, target, oracion, m, model, tokenizer, layers)
+    return get_diference_multiple_context(iterar_sobre, row.target, row.oracion, m, model, tokenizer, layers)
 
 def get_df_de_sesgo_del_modelo(all_sesgos):
     df=[]
+    titulos =["fila", "contextoNumero", "sesgoBase1", "sesgoGen1", "contextoNumero", "sesgoBase2", "sesgoGen2" ]
     for i,p in enumerate(all_sesgos):
         #ind = i + (i>21) + (i>3)
         # TODO: Revisar si con el cambio de los sesgos del significado/contexto sigue ok este formato de p
-        df.append([i, 1, p[0][0], p[1][0], 2, p[0][1], p[1][1]])
+        df.append([i, 1, p[0], p[1], 2, p[2], p[3]])
 
-    df=pd.DataFrame(df)
+    df=pd.DataFrame(df, columns=titulos)
     #df.to_csv("distancias.csv")
     df.to_csv("distancias_nuevo_modelo.csv")
 
-m = "GPT2_wordlevel"#"Llama2"#
+m = "GPT2"#"Llama2"#
 model, tokenizer = cargar_modelo(m) #TODO: Pensar mejor como devolver esto, si hace falta estar pasando las tres cosas o que
-df = cargar_stimuli("Stimuli.csv")
+df = cargar_stimuli("Stimuli.csv") #"Stimuli.csv"
 layers = [-1]
 all_sesgos = []
-all_sesgos.append(df.apply(lambda r: get_sesgo_por_fila(r, layers), axis=1))
+all_sesgos = (df.apply(lambda r: get_sesgo_por_fila(r, layers), axis=1))
 get_df_de_sesgo_del_modelo(all_sesgos)
