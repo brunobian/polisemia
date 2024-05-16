@@ -326,8 +326,18 @@ def get_sesgo_por_fila(row, layers):
     iterar_sobre = [(sig[0],context[0]), (sig[0],context[1]), (sig[1],context[0]), (sig[1],context[2])]
      
     return get_diference_multiple_context(iterar_sobre, row.target, row.oracion, m, model, tokenizer, layers)
+"""
+def sumo_distancias_para_mismo_target_distintos_contextos(row):
+    distancia_contexto_1 = row.sesgoGen1 - row.sesgoBase1
+    distancia_contexto_2 = row.sesgoGen2 - row.sesgoBase2
+    return distancia_contexto_1 + distancia_contexto_2
 
-def get_df_de_sesgo_del_modelo(all_sesgos):
+def calculo_error(df):
+    distancias_por_target = df.apply(lambda x : sumo_distancias_para_mismo_target_distintos_contextos(x), axis = 1)
+    error = sum(distancias_por_target)/(2*len(distancias_por_target))
+    return error
+"""
+def get_df_de_sesgo_del_modelo(all_sesgos, name=''):
     df=[]
     titulos =["fila", "contextoNumero", "sesgoBase1", "sesgoGen1", "contextoNumero", "sesgoBase2", "sesgoGen2" ]
     for i,p in enumerate(all_sesgos):
@@ -337,12 +347,25 @@ def get_df_de_sesgo_del_modelo(all_sesgos):
 
     df=pd.DataFrame(df, columns=titulos)
     #df.to_csv("distancias.csv")
-    df.to_csv("distancias_nuevo_modelo.csv")
+    df.to_csv(f"distancias_por_layer_{name}.csv")
+    """
+    error = calculo_error(df)
+    return error
+    """
 
 m = "GPT2"#"Llama2"#
 model, tokenizer = cargar_modelo(m) #TODO: Pensar mejor como devolver esto, si hace falta estar pasando las tres cosas o que
 df = cargar_stimuli("Stimuli.csv") #"Stimuli.csv"
 layers = [-1]
+
 all_sesgos = []
 all_sesgos = (df.apply(lambda r: get_sesgo_por_fila(r, layers), axis=1))
 get_df_de_sesgo_del_modelo(all_sesgos)
+""" 
+dist_medio = []
+for layer in layers:
+    all_sesgos_layer = []
+    all_sesgos_layer = (df.apply(lambda r: get_sesgo_por_fila(r, layer), axis=1))
+    dist_medio.append(get_df_de_sesgo_del_modelo(all_sesgos_layer, layer))
+# Luego calcular el plot de estas distancias usando dist_medio
+""" 
