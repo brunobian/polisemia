@@ -20,8 +20,8 @@ if m == "GPT2":
     tokenizer = GPT2Tokenizer.from_pretrained(ruta)
 elif m== "Llama2":
     ruta = "/data/brunobian/Documents/Repos/Repos_Analisis/awdlstm-cloze-task/data/models/Llama-2-7b-hf/snapshots/3f025b66e4b78e01b4923d510818c8fe735f6f54"
-    #model = AutoModelForCausalLM.from_pretrained(ruta, device_map="auto",load_in_8bit=True)    
-    model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-2-13b-hf", device_map="auto",load_in_8bit=True,cache_dir="/data/brunobian/languageModels/")    
+    model = AutoModelForCausalLM.from_pretrained(ruta, device_map="auto",load_in_8bit=True)    
+    #model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-2-13b-hf", device_map="auto",load_in_8bit=True,cache_dir="/data/brunobian/languageModels/")    
     tokenizer = LlamaTokenizerFast.from_pretrained(ruta)                            
 elif m == "GPT2_wordlevel":
     tokenizer_dict_path = '/data/brunobian/Documents/Repos/Repos_Analisis/polisemia/LLM/models/data/brunobian/Documents/Repos/Repos_Analisis/awdlstm-cloze-task/data/models/clm-spanish_word_stimulidb+reddit/tokenizer/token_dict.pkl'
@@ -38,8 +38,6 @@ elif m == "GPT2_wordlevel":
 
     tokenizer = Tokenizer(WordLevel(vocab = word2int, unk_token = unk_token))
     tokenizer.pre_tokenizer = Sequence([Punctuation('removed'), Whitespace()])
-
-
 else:
     print("modelo incorrecto")
     
@@ -50,9 +48,15 @@ for iR,r in tqdm(df.iterrows()):
     
     target  = r.target
     oracion = r.oracion
-    sig     = [r.significado1.lower(), r.significado2.lower()]
-    context = [r.Contexto3,    r.Contexto1, r.Contexto2]
+    sig     = [r.significado1.lower().split(","), r.significado2.lower().split(",")] # Esto va a pasar a ser una lista de listas
+    context = [r.Contexto3, r.Contexto1, r.Contexto2]
 
+    # titulos =      ["sesgoBase1",        "sesgoGen1",         "sesgoBase2",        "sesgoGen2" ]
+    # iterar_sobre = [(sig[0],context[0]), (sig[0],context[1]), (sig[1],context[0]), (sig[1],context[2])]
+    # for s,c in iterar_sobre:
+    #     print(s,c)
+
+        
     sesgo = []
     for c in context:
         sims = []
@@ -66,7 +70,7 @@ for iR,r in tqdm(df.iterrows()):
             
             if m == "GPT2":
                 targ_ids = tokenizer.encode(" " + target) # GPT
-                sig_ids  = tokenizer.encode(" " + s, return_tensors="pt").to('cuda')
+                sig_ids  = tokenizer.encode(" " + s, return_tensors="pt").to('cuda') # ver que funciona a una lista
                 sig_ids_list= sig_ids[0].tolist()  # si la palabra del significado tiene mas de un token, me quedo con el primero
                 
             elif m== "Llama2":
