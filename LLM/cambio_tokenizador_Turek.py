@@ -57,10 +57,18 @@ vocab = set()
 
 # Iterate through each row in the dataset
 for row in wikitext_dataset:
+    # TODO: genrar una funcion que usemos cada vez que carguemos un texto (ver si heredamos de algun tokenizador de HF)
+    row = remove_chars(row.lower().replace(","," <comma>").replace("."," <dot>"))
+    row = row.replace("?¡¿","")
     words = row['text'].split(' ')
     vocab.update(words)
 vocab = sorted(list(vocab))
+# TODO: parametrizar estos tokens que los vamos a necesitar despues en la iniciacilizaciòn
+vocab.append("<comma>")
+vocab.append('<dot>')
+
 vocab.append(UNK) # https://huggingface.co/transformers/model_doc/gpt.html#openaigpttokenizer
+#hacer append de los signos de puntuación -- pensar lista : '.', ','
 word2int = {vocab[i]: i for i in range(len(vocab))}
 
 def encode(l):
@@ -119,6 +127,8 @@ for c, w in enumerate(vocab): # Recorre la lista de palabras nuevas (vocab)
         continue
     subembs = torch.stack([model.transformer.wte.weight.data[i] for i in ids], axis = 0) # trae de el modelo los embeddings estáticos
     embs[c] = torch.mean(subembs, axis = 0) # Creo el embedding nuevo con el promedio de los embeddings subpalabra
+
+# TODO: a mano buscar el embedding de punto y de coma original para meterlo en las pos de <dot> y <comma>
 embs[vocab.index(UNK)] = model.transformer.wte.weight.data[tokenizer.vocab[tokenizer.unk_token]]
 assert len(set(embs)) == len(vocab)
 
