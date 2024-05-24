@@ -1,151 +1,8 @@
-"""from transformers import LlamaTokenizerFast,AutoModelForCausalLM,GPT2Tokenizer  
-from torch.nn import functional as f 
-import torch
-import pandas as pd
-from tqdm import tqdm
-import pickle
-
-from tokenizers import Tokenizer
-from tokenizers.models import WordLevel
-from tokenizers.pre_tokenizers import Whitespace, Punctuation, Sequence
-from tokenizers.processors import TemplateProcessing
-
-
-
-m = "GPT2_wordlevel"#"Llama2"#
-
-if m == "GPT2":
-    ruta = "/data/brunobian/Documents/Repos/Repos_Analisis/awdlstm-cloze-task/data/models/clm-spanish"
-    model     = AutoModelForCausalLM.from_pretrained(ruta,device_map="auto")                  
-    tokenizer = GPT2Tokenizer.from_pretrained(ruta)
-elif m== "Llama2":
-    ruta = "/data/brunobian/Documents/Repos/Repos_Analisis/awdlstm-cloze-task/data/models/Llama-2-7b-hf/snapshots/3f025b66e4b78e01b4923d510818c8fe735f6f54"
-    model = AutoModelForCausalLM.from_pretrained(ruta, device_map="auto",load_in_8bit=True)    
-    #model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-2-13b-hf", device_map="auto",load_in_8bit=True,cache_dir="/data/brunobian/languageModels/")    
-    tokenizer = LlamaTokenizerFast.from_pretrained(ruta)                            
-elif m == "GPT2_wordlevel":
-    tokenizer_dict_path = '/data/brunobian/Documents/Repos/Repos_Analisis/polisemia/LLM/models/data/brunobian/Documents/Repos/Repos_Analisis/awdlstm-cloze-task/data/models/clm-spanish_word_stimulidb+reddit/tokenizer/token_dict.pkl'
-    ruta = '/data/brunobian/Documents/Repos/Repos_Analisis/polisemia/LLM/models/data/brunobian/Documents/Repos/Repos_Analisis/awdlstm-cloze-task/data/models/clm-spanish_word_stimulidb+reddit/checkpoint-29160'
-    model = AutoModelForCausalLM.from_pretrained(ruta).to('cuda')
-    try:
-        with open(tokenizer_dict_path, 'rb') as tokenizer_file:
-            tokenizer_dict = pickle.load(tokenizer_file)
-            word2int = tokenizer_dict['word2int']
-            int2word = tokenizer_dict['int2word']
-            unk_token = tokenizer_dict['UNK']
-    except Exception as e:
-        print(f"Failed to load tokenizer dictionary: {e}")
-
-    tokenizer = Tokenizer(WordLevel(vocab = word2int, unk_token = unk_token))
-    tokenizer.pre_tokenizer = Sequence([Punctuation('removed'), Whitespace()])
-else:
-    print("modelo incorrecto")
-    
-df=pd.read_csv("Stimuli.csv",quotechar='"')
-
-all_sesgos = []
-for iR,r in tqdm(df.iterrows()):
-    
-    target  = r.target
-    oracion = r.oracion
-    sig     = [r.significado1.lower().split(","), r.significado2.lower().split(",")] # Esto va a pasar a ser una lista de listas
-    context = [r.Contexto3, r.Contexto1, r.Contexto2]
-
-    # titulos =      ["sesgoBase1",        "sesgoGen1",         "sesgoBase2",        "sesgoGen2" ]
-    # iterar_sobre = [(sig[0],context[0]), (sig[0],context[1]), (sig[1],context[0]), (sig[1],context[2])]
-    # for s,c in iterar_sobre:
-    #     print(s,c)
-
-        
-    sesgo = []
-    for c in context:
-        sims = []
-        for s in sig:
-            pregunta = "En la oración anterior el significado de la palabra " + target + " está asoacido a " + s + "."
-            query = c + " " + oracion + "."
-            if m == "GPT2_wordlevel":
-                text_ids = torch.tensor([tokenizer.encode(query).ids]).to('cuda')
-            else:
-                text_ids = tokenizer.encode(query, return_tensors="pt").to('cuda') 
-            
-            if m == "GPT2":
-                targ_ids = tokenizer.encode(" " + target) # GPT
-                sig_ids  = tokenizer.encode(" " + s, return_tensors="pt").to('cuda') # ver que funciona a una lista
-                sig_ids_list= sig_ids[0].tolist()  # si la palabra del significado tiene mas de un token, me quedo con el primero
-                
-            elif m== "Llama2":
-                targ_ids = tokenizer.encode(target)[1:] # Llama
-                sig_ids  = tokenizer.encode(s, return_tensors="pt").to('cuda')
-                sig_ids  = sig_ids[0,1:]  # Saco el primer elemento que es <s>
-                sig_ids_list= sig_ids.tolist() 
-            elif m == "GPT2_wordlevel":
-                targ_ids = tokenizer.encode(target) # GPT
-                sig_ids  = torch.tensor([tokenizer.encode(s).ids]).to('cuda')
-                sig_ids_list= sig_ids.tolist()  # si la palabra del significado tiene mas de un token, me quedo con el primero
- 
-            # Busco las posiciones del target en el texto
-            text_ids_list = text_ids[0].tolist()
-            for i in range(len(text_ids_list)):
-                if targ_ids == text_ids_list[i:(i+len(targ_ids))]:
-                    break
-            ids_target_in_text = list(range(i,i+len(targ_ids)))
-            #print(tokenizer.decode(text_ids[ids_target_in_text]))
-            
-            # Busco las posiciones del significado en el texto
-            #for i in range(len(text_ids_list)):                                 
-            #    if sig_ids_list == text_ids_list[i:(i+len(sig_ids_list))]:              
-            #        break                                                       
-            #ids_sig_in_text = list(range(i,i+len(sig_ids_list))) 
-            #print(tokenizer.decode(text_ids[ids_sig_in_text]))  
-
-            # Corro el modelo para el texto 
-            # y extraigo embedding del target contextualziado
-            output_text = model(text_ids, output_hidden_states=True)
-            h = output_text.hidden_states
-            last_layer  = h[-5:][0].nanmean(0)
-            #last_layer = torch.cat((h[-4],h[-3],h[-2],h[-1]),dim=2)[0]
-            target_embeddings = last_layer[ids_target_in_text]
-            #sig_embeddings    = last_layer[ids_sig_in_text]
-
-            if m == "GPT2":
-                sig_embeddings = model.transformer.wte(sig_ids[0])
-            elif m == "Llama2":
-                sig_embeddings = model.get_input_embeddings().weight[sig_ids]
-            elif m == "GPT2_wordlevel":
-                sig_embeddings = model.transformer.wte(sig_ids[0])
-
-
-            # Corro el modelo para el significado
-            # output_sig = model(sig_ids, output_hidden_states=True)            
-            # last_layer  = output_sig.hidden_states[-2:][0].nanmean(0) 
-            # sig_embeddings = last_layer[1:]
-
-            target_av_embedding = target_embeddings.nanmean(0)
-            sig_av_embedding    = sig_embeddings.nanmean(0)
-            dist = f.cosine_similarity(target_av_embedding,sig_av_embedding,0).item()
-
-            #dist = max([f.cosine_similarity(target_embeddings[i,:],sig_embeddings[j,:],0).item()
-            #     for i in range(target_embeddings.size(0)) 
-            #            for j in range(sig_embeddings.size(0))])
-            sims.append(dist)
-        
-        sesgo.append(sims)
-    all_sesgos.append([sesgo[0], [sesgo[1][0], sesgo[2][1]]])
-
-df=[]
-for i,p in enumerate(all_sesgos):
-    #ind = i + (i>21) + (i>3)
-    df.append([i, 1, p[0][0], p[1][0], 2, p[0][1], p[1][1]])
-
-import pandas as pd
-df=pd.DataFrame(df)
-#df.to_csv("distancias.csv")
-df.to_csv("distancias_nuevo_modelo.csv")"""
-
 from transformers import LlamaTokenizerFast,AutoModelForCausalLM,GPT2Tokenizer  
 from torch.nn import functional as f 
 import torch
 import pandas as pd
+import matplotlib
 from tqdm import tqdm
 import pickle
 
@@ -154,6 +11,14 @@ from tokenizers.models import WordLevel
 from tokenizers.pre_tokenizers import Whitespace, Punctuation, Sequence
 from tokenizers.processors import TemplateProcessing
 
+'''
+Observar que hay partes del codigo que estan comentadas, leer lo siguiente antes de ejecutar:
+- En el metodo "cargar_modelo" revisar que el path a usar este en la maquina donde estes ejecutando
+    - En la de Bruno: "/data/brunobian/Documents/Repos/Repos_Analisis/awdlstm-cloze-task/data/models/clm-spanish"
+    - En la de Belu: "/Users/NaranjaX/Desktop/tesis/clm-spanish"
+- El modelo para Llama2 puede instalarse cada vez o buscarse en un repo en caso de estar instalado
+- Hay que usar ".to(cuda)" si usas la compu de Bruno y ".to("mps")" sino
+'''
 #.to(cuda) va al gpu de la compu de bruno (es posible que me convenga sacarlo en la mia)
 
 #TODO: Repensar como hacer lo de los modelos a nivel diseño
@@ -161,7 +26,7 @@ def cargar_modelo(model_type, model_path=""):
     #TODO: Revisar que seria el modal path y cuando pasarlo
     #TODO: Sacar estos if usando algun patron de diseño
     if model_type == "GPT2":
-        ruta = "/data/brunobian/Documents/Repos/Repos_Analisis/awdlstm-cloze-task/data/models/clm-spanish"
+        ruta      = "/Users/NaranjaX/Desktop/tesis/clm-spanish"#"/data/brunobian/Documents/Repos/Repos_Analisis/awdlstm-cloze-task/data/models/clm-spanish"
         model     = AutoModelForCausalLM.from_pretrained(ruta,device_map="auto")                  
         tokenizer = GPT2Tokenizer.from_pretrained(ruta)
     elif model_type == "Llama2":
@@ -172,7 +37,7 @@ def cargar_modelo(model_type, model_path=""):
     elif model_type == "GPT2_wordlevel":
         tokenizer_dict_path = '/data/brunobian/Documents/Repos/Repos_Analisis/polisemia/LLM/models/data/brunobian/Documents/Repos/Repos_Analisis/awdlstm-cloze-task/data/models/clm-spanish_word_stimulidb+reddit/tokenizer/token_dict.pkl'
         ruta = '/data/brunobian/Documents/Repos/Repos_Analisis/polisemia/LLM/models/data/brunobian/Documents/Repos/Repos_Analisis/awdlstm-cloze-task/data/models/clm-spanish_word_stimulidb+reddit/checkpoint-29160'
-        model = AutoModelForCausalLM.from_pretrained(ruta).to('cuda')
+        model = AutoModelForCausalLM.from_pretrained(ruta).to("mps")#.to('cuda')
         try:
             with open(tokenizer_dict_path, 'rb') as tokenizer_file:
                 tokenizer_dict = pickle.load(tokenizer_file)
@@ -198,9 +63,9 @@ def get_query(context, oracion):
 
 def tokenize(text, tokenizer, model_type):
     if model_type == "GPT2_wordlevel":
-        text_ids = torch.tensor([tokenizer.encode(text).ids]).to('cuda')
+        text_ids = torch.tensor([tokenizer.encode(text).ids]).to("mps")#.to('cuda')
     else:
-        text_ids = tokenizer.encode(text, return_tensors="pt").to('cuda') 
+        text_ids = tokenizer.encode(text, return_tensors="pt").to("mps")#.to('cuda') 
     return text_ids
 
 def find_target(text_ids, target, lista_sig, model_type, tokenizer):
@@ -209,18 +74,18 @@ def find_target(text_ids, target, lista_sig, model_type, tokenizer):
         if model_type == "GPT2":
             targ_ids = tokenizer.encode(" " + target) # GPT
             # TODO: leer como funciona el encode si sig fuese una lista
-            sig_ids  = tokenizer.encode(" " + sig, return_tensors="pt").to('cuda') 
+            sig_ids  = tokenizer.encode(" " + sig, return_tensors="pt").to("mps")#.to('cuda') 
             sig_ids_list= sig_ids[0].tolist()  # si la palabra del significado tiene mas de un token, me quedo con el primero
         
         elif model_type== "Llama2":
             targ_ids = tokenizer.encode(target)[1:] # Llama
-            sig_ids  = tokenizer.encode(sig, return_tensors="pt").to('cuda')
+            sig_ids  = tokenizer.encode(sig, return_tensors="pt").to("mps")#.to('cuda')
             sig_ids  = sig_ids[0,1:]  # Saco el primer elemento que es <s>
             sig_ids_list= sig_ids.tolist() 
 
         elif model_type == "GPT2_wordlevel":
             targ_ids = tokenizer.encode(target) # GPT
-            sig_ids  = torch.tensor([tokenizer.encode(sig).ids]).to('cuda')
+            sig_ids  = torch.tensor([tokenizer.encode(sig).ids]).to("mps")#.to('cuda')
             sig_ids_list= sig_ids.tolist()  # si la palabra del significado tiene mas de un token, me quedo con el primero
         list_sig_ids.append(sig_ids)
         
@@ -304,12 +169,16 @@ def get_diference_multiple_context(list_sig_y_contexto, target, oracion, model_t
         #find_significado(text_ids, text_ids[0].tolist(), sig_ids.tolist()) # No esta en uso find_significado, estaba comentado, ver si lo dejo o lo saco
         sig_embeddings = get_sig_embedding(model, model_type, sig_ids)
         hidden_state = instance_model(text_ids, model) 
-        dist = []
+        #TODO: Pensar si hay una mejor manera de guardarme los valores para aprovechar el armado del modelo solo una vez
+        '''dist = []
         for layer in layers:
             target_embeddings = extract_embedding_from_layer(hidden_state, ids_target_in_text, layer)
             dist.append(get_diference_target_sig(target_embeddings, sig_embeddings))
         promedio_dist = sum(dist)/len(dist)
-        sesgo.append(promedio_dist)
+        sesgo.append(promedio_dist)'''
+        target_embeddings = extract_embedding_from_layer(hidden_state, ids_target_in_text, layer)
+        dist = get_diference_target_sig(target_embeddings, sig_embeddings)
+        sesgo.append(dist)
     return sesgo
 
 def get_sesgo_por_fila(row, layers):
@@ -326,17 +195,24 @@ def get_sesgo_por_fila(row, layers):
     iterar_sobre = [(sig[0],context[0]), (sig[0],context[1]), (sig[1],context[0]), (sig[1],context[2])]
      
     return get_diference_multiple_context(iterar_sobre, row.target, row.oracion, m, model, tokenizer, layers)
-"""
+
+def calculo_distancia_entre_sesgoBase_sesgoGenerado(sesgoBase, sesgoGenerado):
+    #Obtengo la distancia ortogonal a la identidad
+    return sesgoGenerado - sesgoBase
+
 def sumo_distancias_para_mismo_target_distintos_contextos(row):
-    distancia_contexto_1 = row.sesgoGen1 - row.sesgoBase1
-    distancia_contexto_2 = row.sesgoGen2 - row.sesgoBase2
+    distancia_contexto_1 = calculo_distancia_entre_sesgoBase_sesgoGenerado(row.sesgoBase1,row.sesgoGen1)
+    distancia_contexto_2 = calculo_distancia_entre_sesgoBase_sesgoGenerado(row.sesgoBase2,row.sesgoGen2)
     return distancia_contexto_1 + distancia_contexto_2
 
 def calculo_error(df):
+    #Calculo el promedio de las distancias ortogonales a la identidad contando a cada target con un contexto por separado
+    #Entonces debo sumar las distancias de un mismo target pero distintos contextos
+    #La cantidad de distancias va a ser el doble de la cantidad de targets porque para cada uno hay dos contextos
     distancias_por_target = df.apply(lambda x : sumo_distancias_para_mismo_target_distintos_contextos(x), axis = 1)
     error = sum(distancias_por_target)/(2*len(distancias_por_target))
     return error
-"""
+
 def get_df_de_sesgo_del_modelo(all_sesgos, name=''):
     df=[]
     titulos =["fila", "contextoNumero", "sesgoBase1", "sesgoGen1", "contextoNumero", "sesgoBase2", "sesgoGen2" ]
@@ -346,26 +222,36 @@ def get_df_de_sesgo_del_modelo(all_sesgos, name=''):
         df.append([i, 1, p[0], p[1], 2, p[2], p[3]])
 
     df=pd.DataFrame(df, columns=titulos)
-    #df.to_csv("distancias.csv")
     df.to_csv(f"distancias_por_layer_{name}.csv")
-    """
     error = calculo_error(df)
+    print(f"Error del layer {name} es {error}")
     return error
-    """
+
+def get_plot(distances, layers):
+    df_for_plot = pd.DataFrame(distances, index=layers)
+    plt = df_for_plot.plot(
+        kind="line", 
+        title="Sesgos segun cada capa de GPT2",  
+        xticks=layers,
+        yticks=distances,
+        xlabel="Capas", 
+        ylabel="Distancia ortogonal a identidad",
+        figsize=(10,10)
+        ).get_figure()
+    plt.savefig('pltLayers_-layers.png')
 
 m = "GPT2"#"Llama2"#
 model, tokenizer = cargar_modelo(m) #TODO: Pensar mejor como devolver esto, si hace falta estar pasando las tres cosas o que
 df = cargar_stimuli("Stimuli.csv") #"Stimuli.csv"
-layers = [-1]
-
+layers = [1,2,3,4,5,6,7,8,9,10,11,12]
+'''
 all_sesgos = []
 all_sesgos = (df.apply(lambda r: get_sesgo_por_fila(r, layers), axis=1))
 get_df_de_sesgo_del_modelo(all_sesgos)
-""" 
+'''
 dist_medio = []
 for layer in layers:
-    all_sesgos_layer = []
     all_sesgos_layer = (df.apply(lambda r: get_sesgo_por_fila(r, layer), axis=1))
     dist_medio.append(get_df_de_sesgo_del_modelo(all_sesgos_layer, layer))
 # Luego calcular el plot de estas distancias usando dist_medio
-""" 
+get_plot(dist_medio, layers)
