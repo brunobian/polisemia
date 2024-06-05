@@ -228,7 +228,7 @@ def calculo_distancia_entre_sesgoBase_sesgoGenerado(row):
     ## Obtengo la distancia ortogonal a la identidad
     #TODO: sumar el valor absoluto del minimo
     e = 1
-    return (row.sesgoGen - row.sesgoBase)/abs(row.sesgoBase)
+    return (row.sesgoGen - row.sesgoBase)
 
 def calculo_error(df):
     df_contexto_1 = df.get(['numContexto1', 'sesgoBase1', 'sesgoGen1'])
@@ -243,7 +243,7 @@ def calculo_error(df):
     distancias_por_contexto = df_por_contexto.apply(lambda x : calculo_distancia_entre_sesgoBase_sesgoGenerado(x), axis = 1)
     error_promedio = distancias_por_contexto.mean()
     error_estandar = distancias_por_contexto.sem()
-    return error_promedio, error_estandar
+    return error_promedio, error_estandar, distancias_por_contexto.to_list()
 
 def get_df_de_sesgo_del_modelo(all_sesgos, name=''):
     df=[]
@@ -252,7 +252,7 @@ def get_df_de_sesgo_del_modelo(all_sesgos, name=''):
         df.append([i, 1, p[0], p[1], 2, p[2], p[3]])
 
     df=pd.DataFrame(df, columns=titulos)
-    df.to_csv(f"distancias_por_layer_{name}.csv")
+    #df.to_csv(f"distancias_por_layer_{name}.csv")
     return df
 
 def get_plot(distances, errores_estandar, layers):
@@ -266,6 +266,18 @@ def get_plot(distances, errores_estandar, layers):
     plt.savefig('pltLayers_-layers.png')
     plt.show()
 
+def get_plot_with_boxplot(distances, errores_promedio, errores_estandar, layers):
+    plt.figure(figsize=(10,15))
+    plt.boxplot(distances)
+    plt.errorbar(layers, errores_promedio, yerr=(errores_estandar))
+    plt.title("Sesgos segun cada capa de GPT2")
+    plt.xlabel("Capas")
+    plt.xticks(layers)
+    plt.ylabel("Error promedio")
+    plt.yticks(errores_promedio)
+    plt.savefig('pltLayers_-layers.png')
+    plt.show()
+
 m = "GPT2"#"Llama2"#
 model, tokenizer = cargar_modelo(m) #TODO: Pensar mejor como devolver esto, si hace falta estar pasando las tres cosas o que
 df = cargar_stimuli("Stimuli.csv") #"Stimuli.csv"
@@ -275,20 +287,29 @@ all_sesgos = []
 all_sesgos = (df.apply(lambda r: get_sesgo_por_fila(r, layers), axis=1))
 get_df_de_sesgo_del_modelo(all_sesgos)
 '''
+## Para graficar una linea con errores estandar
 error_promedio_por_capa = []
 error_estandar_por_capa = []
+## Para graficar con boxplot
+errores_por_capa = []
 for layer in layers:
     all_sesgos_layer= (df.apply(lambda r: get_sesgo_por_fila(r, layer), axis=1))
     df_por_layer = get_df_de_sesgo_del_modelo(all_sesgos_layer, layer)
-    error_promedio, error_estandar = calculo_error(df_por_layer)
+    error_promedio, error_estandar, errores = calculo_error(df_por_layer)
+    ## Para graficar una linea con errores estandar
     error_promedio_por_capa.append(error_promedio)
     error_estandar_por_capa.append(error_estandar)
-get_plot(error_promedio_por_capa, error_estandar_por_capa, layers)
+    ## Para graficar con boxplot
+    errores_por_capa.append(errores)
+## Para graficar una linea con errores estandar
+#get_plot(error_promedio_por_capa, error_estandar_por_capa, layers)
+## Para graficar con boxplot
+get_plot_with_boxplot(errores_por_capa, error_promedio_por_capa, error_estandar_por_capa, layers)
 
 '''
 OK Cambiar el nombre del eje y "Error promedio"
 OK Agregar la capa 0 la distancia entre embeddings estaticos y el significado
-OKHacer esto mismo para la target: get_sig_embedding 
+OKHacer esto mismo para la target: get_sig_embedding
 OK hacer reshape del df con los resultados para tener todo en una misma columna
 OK Ademas del promedio(df.mean(columna)) calcular el error estandar (df.sem(columna))
 OK Usar:
