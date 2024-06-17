@@ -197,52 +197,6 @@ def get_diference_target_sig(target_embeddings, sig_embeddings):
     #            for j in range(sig_embeddings.size(0))])
     return dist
 
-## Para obtener los sesgos con el modelo una vez por capa
-def get_diference_multiple_context(list_sig_y_contexto, target, oracion, layer):
-    sesgos_en_capa_dada = []
-    for s, c in list_sig_y_contexto:
-        #pregunta = "En la oración anterior el significado de la palabra " + target + " está asoacido a " + s + "." # TODO: Ver cuando se usaria esto
-        query = get_query(c, oracion)
-        text_ids = tokenize(query, tokenizer, m)
-        sig_ids, ids_target_in_text, target_token = find_target(text_ids, target, s, m, tokenizer) # TODO: No esta en uso find_significado, si lo saco, eliminar lo que devuelvo y no se usa
-        #find_significado(text_ids, text_ids[0].tolist(), sig_ids.tolist()) # No esta en uso find_significado, estaba comentado, ver si lo dejo o lo saco
-        if layer == 0 :
-            sig_embeddings, target_embeddings = get_embedding_before_model(model, m, sig_ids, target_token)
-        else :
-            hidden_state = instance_model(text_ids, model) 
-            sig_embeddings = get_sig_embedding(model, m, sig_ids)
-            #TODO: Pensar si hay una mejor manera de guardarme los valores para aprovechar el armado del modelo solo una vez
-            '''dist = []
-            for layer in layers:
-                target_embeddings = extract_embedding_from_layer(hidden_state, ids_target_in_text, layer)
-                dist.append(get_diference_target_sig(target_embeddings, sig_first_embeddings))
-            promedio_dist = sum(dist)/len(dist)
-            sesgo.append(promedio_dist)'''
-            target_embeddings = extract_embedding_from_layer(hidden_state, ids_target_in_text, layer)
-        sesgo_en_capa = get_diference_target_sig(target_embeddings, sig_embeddings)
-        sesgos_en_capa_dada.append(sesgo_en_capa)
-    return sesgos_en_capa_dada
-
-def get_sesgo_por_fila(row, layer):
-    return get_diference_multiple_context(get_iterador(row), row.target, row.oracion, layer)
-
-def get_sesgo_por_capas(df, layers):
-    ## Para graficar una linea con errores estandar
-    error_promedio_por_capa = []
-    error_estandar_por_capa = []
-    ## Para graficar con boxplot
-    errores_por_capa = []
-    for layer in layers:
-        all_sesgos_layer= (df.apply(lambda r: get_sesgo_por_fila(r, layer), axis=1))
-        df_por_layer = get_df_de_sesgo_del_modelo(all_sesgos_layer, layer)
-        error_promedio, error_estandar, errores = calculo_error(df_por_layer)
-        ## Para graficar una linea con errores estandar
-        error_promedio_por_capa.append(error_promedio)
-        error_estandar_por_capa.append(error_estandar)
-        ## Para graficar con boxplot
-        errores_por_capa.append(errores)
-    return errores_por_capa, error_promedio_por_capa, error_estandar_por_capa
-
 ## Para obtener los sesgos con el modelo una vez por fila
 def get_diference_multiple_context_all_layer(list_sig_y_contexto, target, oracion, layers):
     sesgos_en_capa_dada = []
@@ -377,17 +331,8 @@ m = "GPT2"#"Llama2"#
 model, tokenizer = cargar_modelo(m) #TODO: Pensar mejor como devolver esto, si hace falta estar pasando las tres cosas o que
 df = cargar_stimuli("Stimuli.csv") #"Stimuli.csv"
 layers = [0,1,2,3,4,5,6,7,8,9,10,11,12]
-'''
-all_sesgos = []
-all_sesgos = (df.apply(lambda r: get_sesgo_por_fila(r, layers), axis=1))
-get_df_de_sesgo_del_modelo(all_sesgos)
-'''
 ## Para obtener los sesgos ejecutando el modelo la menor cantidad de veces
 errores_por_capa, error_promedio_por_capa, error_estandar_por_capa = get_sesgo_para_todas_las_capas(df, layers)
-
-##Para obtener sesgos ejecutando todas las veces
-#errores_por_capa, error_promedio_por_capa, error_estandar_por_capa = get_sesgo_por_capas(df, layers)
-
 ## Para graficar una linea con errores estandar
 #get_plot(error_promedio_por_capa, error_estandar_por_capa, layers)
 ## Para graficar con boxplot
