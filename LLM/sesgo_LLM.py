@@ -57,6 +57,12 @@ def cargar_modelo(model_type, model_path=""):
 def cargar_stimuli(stimuli_path):
     return pd.read_csv(stimuli_path,quotechar='"')
 
+def get_iterador (row):
+    sig     = [row.significado1.lower().split(","), row.significado2.lower().split(",")] 
+    context = [row.Contexto3, row.Contexto1, row.Contexto2]
+    iterar_sobre = [(sig[0],context[0]), (sig[0],context[1]), (sig[1],context[0]), (sig[1],context[2])]
+    return iterar_sobre
+
 ## Para la capa 0
 def get_embedding_before_model(model, model_type, sig, target):
     ## Version apta para listas de significados (donde tomo el promedio de los embeddings)
@@ -191,19 +197,20 @@ def get_diference_target_sig(target_embeddings, sig_embeddings):
     #            for j in range(sig_embeddings.size(0))])
     return dist
 
-def get_diference_multiple_context(list_sig_y_contexto, target, oracion, model_type, model, tokenizer, layer):
+## Para obtener los sesgos con el modelo una vez por capa
+def get_diference_multiple_context(list_sig_y_contexto, target, oracion, layer):
     sesgos_en_capa_dada = []
     for s, c in list_sig_y_contexto:
         #pregunta = "En la oración anterior el significado de la palabra " + target + " está asoacido a " + s + "." # TODO: Ver cuando se usaria esto
         query = get_query(c, oracion)
-        text_ids = tokenize(query, tokenizer, model_type)
-        sig_ids, ids_target_in_text, target_token = find_target(text_ids, target, s, model_type, tokenizer) # TODO: No esta en uso find_significado, si lo saco, eliminar lo que devuelvo y no se usa
+        text_ids = tokenize(query, tokenizer, m)
+        sig_ids, ids_target_in_text, target_token = find_target(text_ids, target, s, m, tokenizer) # TODO: No esta en uso find_significado, si lo saco, eliminar lo que devuelvo y no se usa
         #find_significado(text_ids, text_ids[0].tolist(), sig_ids.tolist()) # No esta en uso find_significado, estaba comentado, ver si lo dejo o lo saco
         if layer == 0 :
-            sig_embeddings, target_embeddings = get_embedding_before_model(model, model_type, sig_ids, target_token)
+            sig_embeddings, target_embeddings = get_embedding_before_model(model, m, sig_ids, target_token)
         else :
             hidden_state = instance_model(text_ids, model) 
-            sig_embeddings = get_sig_embedding(model, model_type, sig_ids)
+            sig_embeddings = get_sig_embedding(model, m, sig_ids)
             #TODO: Pensar si hay una mejor manera de guardarme los valores para aprovechar el armado del modelo solo una vez
             '''dist = []
             for layer in layers:
@@ -217,11 +224,99 @@ def get_diference_multiple_context(list_sig_y_contexto, target, oracion, model_t
     return sesgos_en_capa_dada
 
 def get_sesgo_por_fila(row, layer):
-    sig     = [row.significado1.lower().split(","), row.significado2.lower().split(",")] 
-    context = [row.Contexto3, row.Contexto1, row.Contexto2]
-    iterar_sobre = [(sig[0],context[0]), (sig[0],context[1]), (sig[1],context[0]), (sig[1],context[2])]
-     
-    return get_diference_multiple_context(iterar_sobre, row.target, row.oracion, m, model, tokenizer, layer)
+    return get_diference_multiple_context(get_iterador(row), row.target, row.oracion, layer)
+
+def get_sesgo_por_capas(df, layers):
+    ## Para graficar una linea con errores estandar
+    error_promedio_por_capa = []
+    error_estandar_por_capa = []
+    ## Para graficar con boxplot
+    errores_por_capa = []
+    for layer in layers:
+        all_sesgos_layer= (df.apply(lambda r: get_sesgo_por_fila(r, layer), axis=1))
+        df_por_layer = get_df_de_sesgo_del_modelo(all_sesgos_layer, layer)
+        error_promedio, error_estandar, errores = calculo_error(df_por_layer)
+        ## Para graficar una linea con errores estandar
+        error_promedio_por_capa.append(error_promedio)
+        error_estandar_por_capa.append(error_estandar)
+        ## Para graficar con boxplot
+        errores_por_capa.append(errores)
+    return errores_por_capa, error_promedio_por_capa, error_estandar_por_capa
+
+## Para obtener los sesgos con el modelo una vez por fila
+def get_diference_multiple_context_all_layer(list_sig_y_contexto, target, oracion, layers):
+    sesgos_en_capa_dada = []
+    for s, c in list_sig_y_contexto:
+        sesgos_por_fila = []
+        #pregunta = "En la oración anterior el significado de la palabra " + target + " está asoacido a " + s + "." # TODO: Ver cuando se usaria esto
+        query = get_query(c, oracion)
+        text_ids = tokenize(query, tokenizer, m)
+        sig_ids, ids_target_in_text, target_token = find_target(text_ids, target, s, m, tokenizer) # TODO: No esta en uso find_significado, si lo saco, eliminar lo que devuelvo y no se usa
+        #find_significado(text_ids, text_ids[0].tolist(), sig_ids.tolist()) # No esta en uso find_significado, estaba comentado, ver si lo dejo o lo saco
+        hidden_state = instance_model(text_ids, model) 
+        sig_embeddings_after_model = get_sig_embedding(model, m, sig_ids)
+        for layer in layers:
+            if layer == 0:
+                sig_embeddings, target_embeddings = get_embedding_before_model(model, m, sig_ids, target_token)
+                sesgos_por_fila.append(get_diference_target_sig(target_embeddings, sig_embeddings))
+            else:
+                target_embeddings = extract_embedding_from_layer(hidden_state, ids_target_in_text, layer)
+                sesgos_por_fila.append(get_diference_target_sig(target_embeddings, sig_embeddings_after_model))
+        sesgos_en_capa_dada.append(sesgos_por_fila)
+        ## En este punto tengo, por cada target-contexto: [sesgo_layer_0, sesgo_layer_1, ..., sesgo_layer_12]
+    return sesgos_en_capa_dada ## En este punto tengo, [sesgos_target-context_1, sesgos_target-context_2, sesgos_target-context_3, sesgos_target-context_4]
+
+def get_sesgo_de_todas_capas_por_fila(row, layers):
+    return get_diference_multiple_context_all_layer(get_iterador(row), row.target, row.oracion, layers)
+
+def reordeno_sesgos(sesgos):
+    '''
+    tenemos:
+        [fila 1: [Target-Contexto 1: [sc1tc1f1, sc2tc1f1, ... , sc12tc1f1],      
+                  Target-Contexto 2: [sc1tc2f1, sc2tc2f1, ... , sc12tc2f1],  
+                  Target-Contexto 3: [sc1tc3f1, sc2tc3f1, ... , sc12tc3f1],  
+                  Target-Contexto 4: [sc1tc4f1, sc2tc4f1, ... , sc12tc4f1]], 
+        ...
+        fila N:  [Target-Contexto 1: [sc1tc1fN, sc2tc1fN, ... , sc12tc1fN],      
+                  Target-Contexto 2: [sc1tc2fN, sc2tc2fN, ... , sc12tc2fN],  
+                  Target-Contexto 3: [sc1tc3fN, sc2tc3fN, ... , sc12tc3fN],  
+                  Target-Contexto 4: [sc1tc4fN, sc2tc4fN, ... , sc12tc4fN]]]
+    queremos:
+        [sesgos_capa_1: [fila_1: [sc1tc1f1, sc1tc2f1, sc1tc3f1, sc1tc4f1], 
+                         ...
+                         fila_N: [sc1tc1fN, sc1tc2fN, sc1tc3fN, sc1tc4fN]],
+         ... , 
+         sesgos_capa_12:[fila_1: [sc12tc1f1, sc12tc2f1, sc12tc3f1, sc12tc4f1], 
+                         ...
+                         fila_N: [sc12tc1fN, sc12tc2fN, sc12tc3fN, sc12tc4fN]],]
+    '''
+    sesgos_de_tc_por_capa_por_fila = []
+    for sesgos_de_capa_por_targetcontext in sesgos:   
+        ## Traspongo la matriz de capas por target-context a matriz de target-context por capas
+        sesgos_de_targetcontext_por_capa = [[fila[i] for fila in sesgos_de_capa_por_targetcontext ] for i in range(len(sesgos_de_capa_por_targetcontext[0]))]
+        sesgos_de_tc_por_capa_por_fila.append(sesgos_de_targetcontext_por_capa)
+    ## Traspongo la matriz de capas por filas a matriz de filas por capas
+    sesgos_por_capa = [[fila[i] for fila in sesgos_de_tc_por_capa_por_fila ] for i in range(len(sesgos_de_tc_por_capa_por_fila[0]))]
+    return sesgos_por_capa
+
+def get_sesgo_para_todas_las_capas(df, layers):
+    ## La matriz va a tener en cada fila los sesgos de las capas indicadas
+    sesgos_de_capas_por_fila = (df.apply(lambda r: get_sesgo_de_todas_capas_por_fila(r, layers), axis=1))
+    sesgos_por_capa = reordeno_sesgos(sesgos_de_capas_por_fila)
+    ## Para graficar una linea con errores estandar
+    error_promedio_por_capa = []
+    error_estandar_por_capa = []
+    ## Para graficar con boxplot
+    errores_por_capa = []
+    for layer in layers:
+        df_por_layer = get_df_de_sesgo_del_modelo(sesgos_por_capa[layer], layer)
+        error_promedio, error_estandar, errores = calculo_error(df_por_layer)
+        ## Para graficar una linea con errores estandar
+        error_promedio_por_capa.append(error_promedio)
+        error_estandar_por_capa.append(error_estandar)
+        ## Para graficar con boxplot
+        errores_por_capa.append(errores)
+    return errores_por_capa, error_promedio_por_capa, error_estandar_por_capa
 
 ## Para las metricas
 def calculo_distancia_entre_sesgoBase_sesgoGenerado(row):
@@ -274,7 +369,7 @@ def get_plot_with_boxplot(distances, errores_promedio, errores_estandar, layers)
     plt.xlabel("Capas")
     plt.xticks(layers)
     plt.ylabel("Error promedio")
-    plt.yticks(errores_promedio)
+    #plt.yticks(errores_promedio)
     plt.savefig('pltLayers_-layers.png')
     plt.show()
 
@@ -287,20 +382,12 @@ all_sesgos = []
 all_sesgos = (df.apply(lambda r: get_sesgo_por_fila(r, layers), axis=1))
 get_df_de_sesgo_del_modelo(all_sesgos)
 '''
-## Para graficar una linea con errores estandar
-error_promedio_por_capa = []
-error_estandar_por_capa = []
-## Para graficar con boxplot
-errores_por_capa = []
-for layer in layers:
-    all_sesgos_layer= (df.apply(lambda r: get_sesgo_por_fila(r, layer), axis=1))
-    df_por_layer = get_df_de_sesgo_del_modelo(all_sesgos_layer, layer)
-    error_promedio, error_estandar, errores = calculo_error(df_por_layer)
-    ## Para graficar una linea con errores estandar
-    error_promedio_por_capa.append(error_promedio)
-    error_estandar_por_capa.append(error_estandar)
-    ## Para graficar con boxplot
-    errores_por_capa.append(errores)
+## Para obtener los sesgos ejecutando el modelo la menor cantidad de veces
+errores_por_capa, error_promedio_por_capa, error_estandar_por_capa = get_sesgo_para_todas_las_capas(df, layers)
+
+##Para obtener sesgos ejecutando todas las veces
+#errores_por_capa, error_promedio_por_capa, error_estandar_por_capa = get_sesgo_por_capas(df, layers)
+
 ## Para graficar una linea con errores estandar
 #get_plot(error_promedio_por_capa, error_estandar_por_capa, layers)
 ## Para graficar con boxplot
