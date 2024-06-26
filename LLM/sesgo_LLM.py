@@ -6,6 +6,10 @@ import matplotlib
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 import pickle
+'''import pingouin as pg 
+import statsmodels.api as sm
+from statsmodels.formula.api import ols
+from statsmodels.stats.multicomp import pairwise_tukeyhsd, MultiComparison'''
 
 from tokenizers import Tokenizer
 from tokenizers.models import WordLevel
@@ -223,22 +227,22 @@ def get_diference_multiple_context_all_layer(list_sig_y_contexto, target, oracio
 def get_sesgo_de_todas_capas_por_fila(row, layers):
     return get_diference_multiple_context_all_layer(get_iterador(row), row.target, row.oracion, layers)
 
-def reordeno_sesgos(sesgos):
+def reordeno_matriz_sesgos(sesgos):
     '''
     tenemos:
-        [fila 1: [Target-Contexto 1: [sc1tc1f1, sc2tc1f1, ... , sc12tc1f1],      
-                  Target-Contexto 2: [sc1tc2f1, sc2tc2f1, ... , sc12tc2f1],  
-                  Target-Contexto 3: [sc1tc3f1, sc2tc3f1, ... , sc12tc3f1],  
-                  Target-Contexto 4: [sc1tc4f1, sc2tc4f1, ... , sc12tc4f1]], 
+        [fila 1: [Target-Contexto 1: [sc0tc1f1, sc1tc1f1, ... , sc12tc1f1],      
+                  Target-Contexto 2: [sc0tc2f1, sc1tc2f1, ... , sc12tc2f1],  
+                  Target-Contexto 3: [sc0tc3f1, sc1tc3f1, ... , sc12tc3f1],  
+                  Target-Contexto 4: [sc0tc4f1, sc1tc4f1, ... , sc12tc4f1]], 
         ...
-        fila N:  [Target-Contexto 1: [sc1tc1fN, sc2tc1fN, ... , sc12tc1fN],      
-                  Target-Contexto 2: [sc1tc2fN, sc2tc2fN, ... , sc12tc2fN],  
-                  Target-Contexto 3: [sc1tc3fN, sc2tc3fN, ... , sc12tc3fN],  
-                  Target-Contexto 4: [sc1tc4fN, sc2tc4fN, ... , sc12tc4fN]]]
+        fila N:  [Target-Contexto 1: [sc0tc1fN, sc1tc1fN, ... , sc12tc1fN],      
+                  Target-Contexto 2: [sc0tc2fN, sc1tc2fN, ... , sc12tc2fN],  
+                  Target-Contexto 3: [sc0tc3fN, sc1tc3fN, ... , sc12tc3fN],  
+                  Target-Contexto 4: [sc0tc4fN, sc1tc4fN, ... , sc12tc4fN]]]
     queremos:
-        [sesgos_capa_1: [fila_1: [sc1tc1f1, sc1tc2f1, sc1tc3f1, sc1tc4f1], 
+        [sesgos_capa_0: [fila_1: [sc0tc1f1, sc0tc2f1, sc0tc3f1, sc0tc4f1], 
                          ...
-                         fila_N: [sc1tc1fN, sc1tc2fN, sc1tc3fN, sc1tc4fN]],
+                         fila_N: [sc0tc1fN, sc0tc2fN, sc0tc3fN, sc0tc4fN]],
          ... , 
          sesgos_capa_12:[fila_1: [sc12tc1f1, sc12tc2f1, sc12tc3f1, sc12tc4f1], 
                          ...
@@ -253,24 +257,11 @@ def reordeno_sesgos(sesgos):
     sesgos_por_capa = [[fila[i] for fila in sesgos_de_tc_por_capa_por_fila ] for i in range(len(sesgos_de_tc_por_capa_por_fila[0]))]
     return sesgos_por_capa
 
-def get_sesgo_para_todas_las_capas(df, layers):
-    ## La matriz va a tener en cada fila los sesgos de las capas indicadas
-    sesgos_de_capas_por_fila = (df.apply(lambda r: get_sesgo_de_todas_capas_por_fila(r, layers), axis=1))
-    sesgos_por_capa = reordeno_sesgos(sesgos_de_capas_por_fila)
-    ## Para graficar una linea con errores estandar
-    error_promedio_por_capa = []
-    error_estandar_por_capa = []
-    ## Para graficar con boxplot
-    errores_por_capa = []
-    for layer in layers:
-        df_por_layer = get_df_de_sesgo_del_modelo(sesgos_por_capa[layer], layer)
-        error_promedio, error_estandar, errores = calculo_error(df_por_layer)
-        ## Para graficar una linea con errores estandar
-        error_promedio_por_capa.append(error_promedio)
-        error_estandar_por_capa.append(error_estandar)
-        ## Para graficar con boxplot
-        errores_por_capa.append(errores)
-    return errores_por_capa, error_promedio_por_capa, error_estandar_por_capa
+def get_lista_de_df(sesgos_por_capa):
+    lista_de_df = []
+    for sesgo_por_fila in sesgos_por_capa:
+        lista_de_df.append(get_df_de_sesgo_del_modelo(sesgo_por_fila))
+    return lista_de_df
 
 ## Para las metricas
 def calculo_distancia_entre_sesgoBase_sesgoGenerado(row):
@@ -285,7 +276,7 @@ def calculo_error(df):
     df_contexto_2 = df.get(['numContexto2', 'sesgoBase2', 'sesgoGen2'])
     df_contexto_2 = df_contexto_2.set_axis(["numContexto", "sesgoBase", "sesgoGen"], axis=1)
     df_por_contexto = pd.concat([df_contexto_1, df_contexto_2])
-    df_por_contexto.to_csv(f"distancias_por_layer.csv")
+    #df_por_contexto.to_csv(f"distancias_por_layer.csv")
     ## Calculo el promedio de las distancias ortogonales a la identidad contando a cada target con un contexto por separado
     ## Entonces debo sumar las distancias de un mismo target pero distintos contextos
     ## La cantidad de distancias va a ser el doble de la cantidad de targets porque para cada uno hay dos contextos
@@ -317,7 +308,7 @@ def get_plot(distances, errores_estandar, layers):
 
 def get_plot_with_boxplot(distances, errores_promedio, errores_estandar, layers):
     plt.figure(figsize=(10,15))
-    plt.boxplot(distances)
+    plt.boxplot(distances, positions=layers)
     plt.errorbar(layers, errores_promedio, yerr=(errores_estandar))
     plt.title("Sesgos segun cada capa de GPT2")
     plt.xlabel("Capas")
@@ -327,16 +318,61 @@ def get_plot_with_boxplot(distances, errores_promedio, errores_estandar, layers)
     plt.savefig('pltLayers_-layers.png')
     plt.show()
 
+def get_errores_para_todas_las_capas(lista_de_df, layers):
+    ## Para graficar una linea con errores estandar
+    error_promedio_por_capa = []
+    error_estandar_por_capa = []
+    ## Para graficar con boxplot
+    errores_por_capa = []
+    for layer in layers:
+        error_promedio, error_estandar, errores = calculo_error(lista_de_df[layer])
+        ## Para graficar una linea con errores estandar
+        error_promedio_por_capa.append(error_promedio)
+        error_estandar_por_capa.append(error_estandar)
+        ## Para graficar con boxplot tengo lista de listas
+        errores_por_capa.append(errores)
+    return errores_por_capa, error_promedio_por_capa, error_estandar_por_capa
+
+'''def control_de_caso_base(lista_de_listas_de_distancias):
+    ## Preparar tus datos: Carga tus datos en un DataFrame de Pandas. Supongamos que tienes un conjunto de datos con una columna de grupos y una columna de valores (por ejemplo, resultados de un experimento):
+    grupo = []
+    valores = []
+    for i in range(12):
+        grupo.append(i)
+        grupo.append(i)
+        valores.append(valor0)
+        valores.append(valori+1)
+    data = pd.DataFrame({ 'grupo': grupo, 'valor': valores })
+    ## Primero, ajusta un modelo usando ols (ordinary least squares)
+    modelo = ols('valor ~ grupo', data=data).fit()
+    ## Luego, realiza el ANOVA usando anova_lm con tipo 2 porque ese es el tipo de la suma de cuadrados usada
+    ## El resultado del ANOVA (anova_resultados) te dirá si hay diferencias significativas entre los grupos.
+    anova_resultados = sm.stats.anova_lm(modelo, typ=2) 
+    ## Para realizar contrastes post hoc como el método de Tukey para comparaciones múltiples entre grupos
+    mc = MultiComparison(data['valor'], data['grupo']) 
+    ## Los resultados del método de Tukey (resultado_tukey) te mostrarán qué grupos difieren significativamente entre sí después de realizar el ANOVA.
+    resultado_tukey = mc.tukeyhsd() 
+    print(resultado_tukey)'''
+
 m = "GPT2"#"Llama2"#
 model, tokenizer = cargar_modelo(m) #TODO: Pensar mejor como devolver esto, si hace falta estar pasando las tres cosas o que
 df = cargar_stimuli("Stimuli.csv") #"Stimuli.csv"
 layers = [0,1,2,3,4,5,6,7,8,9,10,11,12]
 ## Para obtener los sesgos ejecutando el modelo la menor cantidad de veces
-errores_por_capa, error_promedio_por_capa, error_estandar_por_capa = get_sesgo_para_todas_las_capas(df, layers)
+sesgos_de_capas_por_fila = (df.apply(lambda r: get_sesgo_de_todas_capas_por_fila(r, layers), axis=1))
+sesgos_por_capa = reordeno_matriz_sesgos(sesgos_de_capas_por_fila)
+lista_de_df = get_lista_de_df(sesgos_por_capa)
 ## Para graficar una linea con errores estandar
+#errores_por_capa, error_promedio_por_capa, error_estandar_por_capa = get_errores_para_todas_las_capas(lista_de_df, layers)
 #get_plot(error_promedio_por_capa, error_estandar_por_capa, layers)
 ## Para graficar con boxplot
+errores_por_capa, error_promedio_por_capa, error_estandar_por_capa = get_errores_para_todas_las_capas(lista_de_df, layers)
 get_plot_with_boxplot(errores_por_capa, error_promedio_por_capa, error_estandar_por_capa, layers)
+## Controles de enova
+#titulos =["distCapa0", "distCapa1", "distCapa2", "distCapa3", "distCapa4", "distCapa5", "distCapa6", "distCapa7", "distCapa8", "distCapa9", "distCapa10", "distCapa11", "distCapa12" ]
+#df_errores_por_capa = pd.DataFrame(errores_por_capa, columns=titulos)
+#errores_control_de_caso_base = control_de_caso_base(errores_por_capa)
+#errores_control_de_dosis = control_de_dosis(lista_de_df)
 
 '''
 OK Cambiar el nombre del eje y "Error promedio"
@@ -351,6 +387,21 @@ OK Usar:
 buscar una palabra que se sample mal, re bien y promedio
 analizar misma palabra distintos contextos
 OK agregar en la resta la division por sesgo base para normalizar
-Sumamos uno a cada sesgo porque la distancia coseno va de -1 a 1 y queremos evitar los valores negativos
+NOSumamos uno a cada sesgo porque la distancia coseno va de -1 a 1 y queremos evitar los valores negativos
+Buscar sobre anova (analisis de varianza) entre la capa interna y la de todas las capas
+t de student
+    Bonferroni para corregir los significativos: podria ser muy conservador
+    entonces conviene usar enova con contrastes:
+        control de caso base: osea entre el 0 y cada capa
+        control de dosis: entre capa consecutivas
+        Poner los dos plots por separado y agregar la mediana al boxplot
+pasar todo a dataframe
+guardame las distancias y acomodar el modelo para usar eso
 
+CONSULTAS
+como aplico anova? para diferenciar como se comporta la diferencia entre la capa 0 y las otras para cada fila? 
+o tomo el promerio/error de cada capa y ls comparo con la capa 0?
+Que resultado quiero tener? 
+requiere post hoc?
+que tipo de contraste aplico?
 '''
