@@ -61,41 +61,50 @@ def cargar_modelo(model_type, model_path=""):
 def cargar_stimuli(stimuli_path):
     return pd.read_csv(stimuli_path,quotechar='"')
 
+def get_significados_sin_peso(row):
+    significados = []
+    signif1 = []
+    for lista_signif1 in row.significado1.split(','):
+        signif1.append(lista_signif1.split(';')[0].lower())
+    significados.append(signif1)
+    signif2 = []
+    for lista_signif2 in row.significado2.split(','):
+        signif2.append(lista_signif2.split(';')[0].lower())
+    significados.append(signif2)
+    return significados
+
+def get_pesos(row):
+    pesos = []
+    pesos1 = []
+    for lista_signif1 in row.significado1.split(','):
+        pesos1.append(int(lista_signif1.split(';')[1]))
+    pesos.append(pesos1)
+    pesos2 = []
+    for lista_signif2 in row.significado2.split(','):
+        pesos2.append(int(lista_signif2.split(';')[1]))
+    pesos.append(pesos2)
+    return pesos
+
 def get_iterador (row):
-    sig     = [row.significado1.lower().split(","), row.significado2.lower().split(",")] 
+    sig = get_significados_sin_peso(row)
+    pesos = get_pesos(row)
     context = [row.Contexto3, row.Contexto1, row.Contexto2]
-    iterar_sobre = [(sig[0],context[0]), (sig[0],context[1]), (sig[1],context[0]), (sig[1],context[2])]
+    iterar_sobre = [(sig[0], pesos[0], context[0]), (sig[0], pesos[0], context[1]), (sig[1], pesos[1], context[0]), (sig[1], pesos[1], context[2])]
     return iterar_sobre
 
 ## Para la capa 0
-def get_embedding_before_model(model, model_type, sig, target):
-    ## Version apta para listas de significados (donde tomo el promedio de los embeddings)
-    sig_embeddings_list = []
-
+def get_embedding_before_model(model, model_type, target):
     if model_type == "GPT2":
         target_embedding = model.transformer.wte(target[0])
-        for s in sig:
-            sig_embeddings_list.append(model.transformer.wte(s[0])) #Tomo el primer id para cada palabra de la lista de significado
     elif model_type == "Llama2":
         target_embedding = model.get_input_embeddings().weight[target]
-        for s in sig:
-            sig_embeddings_list.append(model.get_input_embeddings().weight[s]) #Aca no tome el primero porque no estaba en el codigo original
     elif model_type == "GPT2_wordlevel":
         target_embedding = model.transformer.wte(target[0])
-        for s in sig:
-            sig_embeddings_list.append(model.transformer.wte(s[0])) #Tomo el primer id para cada palabra de la lista de significado
-
-    stacked_sig_embeddings = torch.stack(sig_embeddings_list)
-    sig_embeddings = torch.nanmean(stacked_sig_embeddings, dim=0)
+    
     stacked_target_embeddings = torch.stack([target_embedding])
     target_embeddings = torch.nanmean(stacked_target_embeddings, dim=0)
 
-    # Corro el modelo para el significado
-    # output_sig = model(sig_ids, output_hidden_states=True)            
-    # last_layer  = output_sig.hidden_states[-2:][0].nanmean(0) 
-    # sig_embeddings = last_layer[1:]
-
-    return sig_embeddings, target_embeddings
+    return target_embeddings
 
 ## Para el resto de las capas
 def get_query(context, oracion):
@@ -167,7 +176,7 @@ def extract_embedding_from_layer(hidden_state, ids_target_in_text, layer=-1):
     #sig_embeddings    = last_layer[ids_sig_in_text]
     return target_embeddings
 
-def get_sig_embedding(model, model_type, sig):
+def get_sig_embedding(model, model_type, sig, pesoDeSignificados):
     ## Version apta para listas de significados (donde tomo el promedio de los embeddings)
     sig_embeddings_list = []
 
@@ -181,8 +190,13 @@ def get_sig_embedding(model, model_type, sig):
         for s in sig:
             sig_embeddings_list.append(model.transformer.wte(s[0])) #Tomo el primer id para cada palabra de la lista de significado
 
+    '''?????????? ACA VA CON EL PROMEDIO PONDERADO ??????????'''
     stacked_embeddings = torch.stack(sig_embeddings_list)
-    sig_embeddings = torch.nanmean(stacked_embeddings, dim=0)
+    pesoDeSignificados = torch.tensor(pesoDeSignificados).to("mps")#.to('cuda')
+    stacked_embeddings_pesados = stacked_embeddings * pesoDeSignificados.unsqueeze(1)
+    sig_embeddings = torch.sum(stacked_embeddings_pesados, dim=0)
+    #stacked_embeddings = torch.stack(sig_embeddings_list)
+    #sig_embeddings = torch.nanmean(stacked_embeddings, dim=0)
 
     # Corro el modelo para el significado
     # output_sig = model(sig_ids, output_hidden_states=True)            
@@ -193,6 +207,7 @@ def get_sig_embedding(model, model_type, sig):
 
 def get_diference_target_sig(target_embeddings, sig_embeddings):
     target_av_embedding = target_embeddings.nanmean(0)
+    '''?????????? ACA VA CON EL PROMEDIO PONDERADO ??????????'''
     sig_av_embedding    = sig_embeddings.nanmean(0)
     dist = f.cosine_similarity(target_av_embedding,sig_av_embedding,0).item()
 
@@ -204,22 +219,22 @@ def get_diference_target_sig(target_embeddings, sig_embeddings):
 ## Para obtener los sesgos con el modelo una vez por fila
 def get_diference_multiple_context_all_layer(list_sig_y_contexto, target, oracion, layers):
     sesgos_en_capa_dada = []
-    for s, c in list_sig_y_contexto:
+    for listaSignificados, pesoDeSignificados, contexto in list_sig_y_contexto:
         sesgos_por_fila = []
         #pregunta = "En la oración anterior el significado de la palabra " + target + " está asoacido a " + s + "." # TODO: Ver cuando se usaria esto
-        query = get_query(c, oracion)
+        query = get_query(contexto, oracion)
         text_ids = tokenize(query, tokenizer, m)
-        sig_ids, ids_target_in_text, target_token = find_target(text_ids, target, s, m, tokenizer) # TODO: No esta en uso find_significado, si lo saco, eliminar lo que devuelvo y no se usa
+        sig_ids, ids_target_in_text, target_token = find_target(text_ids, target, listaSignificados, m, tokenizer) # TODO: No esta en uso find_significado, si lo saco, eliminar lo que devuelvo y no se usa
         #find_significado(text_ids, text_ids[0].tolist(), sig_ids.tolist()) # No esta en uso find_significado, estaba comentado, ver si lo dejo o lo saco
         hidden_state = instance_model(text_ids, model) 
-        sig_embeddings_after_model = get_sig_embedding(model, m, sig_ids)
+        sig_embeddings = get_sig_embedding(model, m, sig_ids, pesoDeSignificados)
         for layer in layers:
             if layer == 0:
-                sig_embeddings, target_embeddings = get_embedding_before_model(model, m, sig_ids, target_token)
+                target_embeddings = get_embedding_before_model(model, m, target_token)
                 sesgos_por_fila.append(get_diference_target_sig(target_embeddings, sig_embeddings))
             else:
                 target_embeddings = extract_embedding_from_layer(hidden_state, ids_target_in_text, layer)
-                sesgos_por_fila.append(get_diference_target_sig(target_embeddings, sig_embeddings_after_model))
+                sesgos_por_fila.append(get_diference_target_sig(target_embeddings, sig_embeddings))
         sesgos_en_capa_dada.append(sesgos_por_fila)
         ## En este punto tengo, por cada target-contexto: [sesgo_layer_0, sesgo_layer_1, ..., sesgo_layer_12]
     return sesgos_en_capa_dada ## En este punto tengo, [sesgos_target-context_1, sesgos_target-context_2, sesgos_target-context_3, sesgos_target-context_4]
@@ -270,12 +285,7 @@ def calculo_distancia_entre_sesgoBase_sesgoGenerado(row):
     e = 1
     return (row.sesgoGen - row.sesgoBase)
 
-def calculo_error(df):
-    df_contexto_1 = df.get(['numContexto1', 'sesgoBase1', 'sesgoGen1'])
-    df_contexto_1 = df_contexto_1.set_axis(["numContexto", "sesgoBase", "sesgoGen"], axis=1)
-    df_contexto_2 = df.get(['numContexto2', 'sesgoBase2', 'sesgoGen2'])
-    df_contexto_2 = df_contexto_2.set_axis(["numContexto", "sesgoBase", "sesgoGen"], axis=1)
-    df_por_contexto = pd.concat([df_contexto_1, df_contexto_2])
+def calculo_error(df_por_contexto):
     #df_por_contexto.to_csv(f"distancias_por_layer.csv")
     ## Calculo el promedio de las distancias ortogonales a la identidad contando a cada target con un contexto por separado
     ## Entonces debo sumar las distancias de un mismo target pero distintos contextos
@@ -287,9 +297,16 @@ def calculo_error(df):
 
 def get_df_de_sesgo_del_modelo(all_sesgos, name=''):
     df=[]
-    titulos =["fila", "numContexto1", "sesgoBase1", "sesgoGen1", "numContexto2", "sesgoBase2", "sesgoGen2" ]
+    ## Para tener un df con una fila por palabra de target (quedan dos contextos por fila)
+    #titulos =["fila", "numContexto1", "sesgoBase1", "sesgoGen1", "numContexto2", "sesgoBase2", "sesgoGen2" ]
+    ## Para tener un df con una fila por palabra de target (quedan dos contextos por fila)
+    titulos =["fila","numContexto", "sesgoBase", "sesgoGen"]
     for i,p in enumerate(all_sesgos):
-        df.append([i, 1, p[0], p[1], 2, p[2], p[3]])
+        ## Para tener un df con una fila por palabra de target (quedan dos contextos por fila)
+        #df.append([i, 1, p[0], p[1], 2, p[2], p[3]]) 
+        ## Para tener un df con una fila por palabra de target+contexto
+        df.append([i, 1, p[0], p[1]])
+        df.append([i, 2, p[2], p[3]])
 
     df=pd.DataFrame(df, columns=titulos)
     #df.to_csv(f"distancias_por_layer_{name}.csv")
@@ -315,7 +332,7 @@ def get_plot_with_boxplot(distances, errores_promedio, errores_estandar, layers)
     plt.xticks(layers)
     plt.ylabel("Error promedio")
     #plt.yticks(errores_promedio)
-    plt.savefig('pltLayers_-layers.png')
+    plt.savefig('pltLayers_allLayers_boxplot.png')
     plt.show()
 
 def get_errores_para_todas_las_capas(lista_de_df, layers):
@@ -332,6 +349,34 @@ def get_errores_para_todas_las_capas(lista_de_df, layers):
         ## Para graficar con boxplot tengo lista de listas
         errores_por_capa.append(errores)
     return errores_por_capa, error_promedio_por_capa, error_estandar_por_capa
+
+def get_plot_with_scatterplot(distances, errores_promedio, errores_estandar, layers, size = (10,40), nameTarget = 'todos los targets', name = 'allTargets'):
+    colors = plt.cm.tab20.colors
+    num_colors = len(distances)
+    colors_extended = colors * (num_colors // len(colors)) + colors[:num_colors % len(colors)]
+    plt.figure(figsize=size)
+    for i_dist, lista_dist in enumerate(distances):
+        plt.scatter(layers, lista_dist, c=colors_extended[i_dist], label=f'Target-contexto {i_dist}')  # Scatter plot para cada lista
+    plt.errorbar(layers, errores_promedio, yerr=errores_estandar, fmt='o', color='black', capsize=5, label='Error estándar')
+    plt.title(f"Scatter plot de sesgos para {nameTarget} según cada capa de GPT2")
+    plt.xlabel("Capas")
+    plt.ylabel("Errores")
+    plt.xticks(layers)
+    plt.legend()  # Mostrar leyenda con etiquetas de lista
+    # Mostrar el gráfico
+    plt.grid(True)
+    plt.savefig(f'graficos/pltLayers_{name}_scatter.png')
+    plt.close()
+
+def reordeno_por_targetcontexto (errores_por_capa):
+    return [[fila[i] for fila in errores_por_capa ] for i in range(len(errores_por_capa[0]))] # traspongo la matriz para que este ordenada por filas en vez de por capas
+
+def get_plots_for_each_target(distances, errores_promedio, errores_estandar, layers, df):
+    for i in range(0, len(distances), 2):
+        distances_for_each_target = [distances[i], distances[i+1]]
+        indiceTarget = (i/2)
+        target = df['target'][indiceTarget]
+        get_plot_with_scatterplot(distances_for_each_target, errores_promedio, errores_estandar, layers, (10,15), f'el target {target}', f'target_{indiceTarget+1}')
 
 '''def control_de_caso_base(lista_de_listas_de_distancias):
     ## Preparar tus datos: Carga tus datos en un DataFrame de Pandas. Supongamos que tienes un conjunto de datos con una columna de grupos y una columna de valores (por ejemplo, resultados de un experimento):
@@ -356,7 +401,7 @@ def get_errores_para_todas_las_capas(lista_de_df, layers):
 
 m = "GPT2"#"Llama2"#
 model, tokenizer = cargar_modelo(m) #TODO: Pensar mejor como devolver esto, si hace falta estar pasando las tres cosas o que
-df = cargar_stimuli("Stimuli.csv") #"Stimuli.csv"
+df = cargar_stimuli("Stimuli_conListaDeSignificadosConPeso.csv") #"Stimuli.csv"
 layers = [0,1,2,3,4,5,6,7,8,9,10,11,12]
 ## Para obtener los sesgos ejecutando el modelo la menor cantidad de veces
 sesgos_de_capas_por_fila = (df.apply(lambda r: get_sesgo_de_todas_capas_por_fila(r, layers), axis=1))
@@ -367,7 +412,9 @@ lista_de_df = get_lista_de_df(sesgos_por_capa)
 #get_plot(error_promedio_por_capa, error_estandar_por_capa, layers)
 ## Para graficar con boxplot
 errores_por_capa, error_promedio_por_capa, error_estandar_por_capa = get_errores_para_todas_las_capas(lista_de_df, layers)
-get_plot_with_boxplot(errores_por_capa, error_promedio_por_capa, error_estandar_por_capa, layers)
+errores_por_target = reordeno_por_targetcontexto(errores_por_capa)
+get_plot_with_scatterplot(errores_por_target, error_promedio_por_capa, error_estandar_por_capa, layers)
+get_plots_for_each_target(errores_por_target, error_promedio_por_capa, error_estandar_por_capa, layers, df)
 ## Controles de enova
 #titulos =["distCapa0", "distCapa1", "distCapa2", "distCapa3", "distCapa4", "distCapa5", "distCapa6", "distCapa7", "distCapa8", "distCapa9", "distCapa10", "distCapa11", "distCapa12" ]
 #df_errores_por_capa = pd.DataFrame(errores_por_capa, columns=titulos)
