@@ -77,11 +77,17 @@ def get_pesos(row):
     pesos = []
     pesos1 = []
     for lista_signif1 in row.significado1.split(','):
-        pesos1.append(int(lista_signif1.split(';')[1]))
+        '''SI no es entero que salte un error'''
+        signif = lista_signif1.split(';')[1]
+        assert(float(signif) - int(signif) == 0)
+        pesos1.append(int(signif))
     pesos.append(pesos1)
     pesos2 = []
     for lista_signif2 in row.significado2.split(','):
-        pesos2.append(int(lista_signif2.split(';')[1]))
+        '''SI no es entero que salte un error'''
+        signif = lista_signif2.split(';')[1]
+        assert(float(signif) - int(signif) == 0)
+        pesos2.append(int(signif))
     pesos.append(pesos2)
     return pesos
 
@@ -192,9 +198,11 @@ def get_sig_embedding(model, model_type, sig, pesoDeSignificados):
 
     '''?????????? ACA VA CON EL PROMEDIO PONDERADO ??????????'''
     stacked_embeddings = torch.stack(sig_embeddings_list)
-    pesoDeSignificados = torch.tensor(pesoDeSignificados).to("mps")#.to('cuda')
-    stacked_embeddings_pesados = stacked_embeddings * pesoDeSignificados.unsqueeze(1)
-    sig_embeddings = torch.sum(stacked_embeddings_pesados, dim=0)
+    pesoDeSignificados_tensor = torch.tensor(pesoDeSignificados).to("mps")#.to('cuda')
+    stacked_embeddings_pesados = stacked_embeddings * pesoDeSignificados_tensor.unsqueeze(1)
+    sig_embeddings_sum = torch.sum(stacked_embeddings_pesados, dim=0)
+    '''Hacer la division por la suma de lso pesos'''
+    sig_embeddings_prom = torch.div(sig_embeddings_sum, sum(pesoDeSignificados))
     #stacked_embeddings = torch.stack(sig_embeddings_list)
     #sig_embeddings = torch.nanmean(stacked_embeddings, dim=0)
 
@@ -203,11 +211,11 @@ def get_sig_embedding(model, model_type, sig, pesoDeSignificados):
     # last_layer  = output_sig.hidden_states[-2:][0].nanmean(0) 
     # sig_embeddings = last_layer[1:]
 
-    return sig_embeddings
+    return sig_embeddings_prom
 
 def get_diference_target_sig(target_embeddings, sig_embeddings):
+    ## Hacemos promedios por la primera dimension en caso de tokens subpalabras
     target_av_embedding = target_embeddings.nanmean(0)
-    '''?????????? ACA VA CON EL PROMEDIO PONDERADO ??????????'''
     sig_av_embedding    = sig_embeddings.nanmean(0)
     dist = f.cosine_similarity(target_av_embedding,sig_av_embedding,0).item()
 
@@ -378,27 +386,6 @@ def get_plots_for_each_target(distances, errores_promedio, errores_estandar, lay
         target = df['target'][indiceTarget]
         get_plot_with_scatterplot(distances_for_each_target, errores_promedio, errores_estandar, layers, (10,15), f'el target {target}', f'target_{indiceTarget+1}')
 
-'''def control_de_caso_base(lista_de_listas_de_distancias):
-    ## Preparar tus datos: Carga tus datos en un DataFrame de Pandas. Supongamos que tienes un conjunto de datos con una columna de grupos y una columna de valores (por ejemplo, resultados de un experimento):
-    grupo = []
-    valores = []
-    for i in range(12):
-        grupo.append(i)
-        grupo.append(i)
-        valores.append(valor0)
-        valores.append(valori+1)
-    data = pd.DataFrame({ 'grupo': grupo, 'valor': valores })
-    ## Primero, ajusta un modelo usando ols (ordinary least squares)
-    modelo = ols('valor ~ grupo', data=data).fit()
-    ## Luego, realiza el ANOVA usando anova_lm con tipo 2 porque ese es el tipo de la suma de cuadrados usada
-    ## El resultado del ANOVA (anova_resultados) te dirá si hay diferencias significativas entre los grupos.
-    anova_resultados = sm.stats.anova_lm(modelo, typ=2) 
-    ## Para realizar contrastes post hoc como el método de Tukey para comparaciones múltiples entre grupos
-    mc = MultiComparison(data['valor'], data['grupo']) 
-    ## Los resultados del método de Tukey (resultado_tukey) te mostrarán qué grupos difieren significativamente entre sí después de realizar el ANOVA.
-    resultado_tukey = mc.tukeyhsd() 
-    print(resultado_tukey)'''
-
 m = "GPT2"#"Llama2"#
 model, tokenizer = cargar_modelo(m) #TODO: Pensar mejor como devolver esto, si hace falta estar pasando las tres cosas o que
 df = cargar_stimuli("Stimuli_conListaDeSignificadosConPeso.csv") #"Stimuli.csv"
@@ -415,11 +402,6 @@ errores_por_capa, error_promedio_por_capa, error_estandar_por_capa = get_errores
 errores_por_target = reordeno_por_targetcontexto(errores_por_capa)
 get_plot_with_scatterplot(errores_por_target, error_promedio_por_capa, error_estandar_por_capa, layers)
 get_plots_for_each_target(errores_por_target, error_promedio_por_capa, error_estandar_por_capa, layers, df)
-## Controles de enova
-#titulos =["distCapa0", "distCapa1", "distCapa2", "distCapa3", "distCapa4", "distCapa5", "distCapa6", "distCapa7", "distCapa8", "distCapa9", "distCapa10", "distCapa11", "distCapa12" ]
-#df_errores_por_capa = pd.DataFrame(errores_por_capa, columns=titulos)
-#errores_control_de_caso_base = control_de_caso_base(errores_por_capa)
-#errores_control_de_dosis = control_de_dosis(lista_de_df)
 
 '''
 OK Cambiar el nombre del eje y "Error promedio"
@@ -435,20 +417,5 @@ buscar una palabra que se sample mal, re bien y promedio
 analizar misma palabra distintos contextos
 OK agregar en la resta la division por sesgo base para normalizar
 NOSumamos uno a cada sesgo porque la distancia coseno va de -1 a 1 y queremos evitar los valores negativos
-Buscar sobre anova (analisis de varianza) entre la capa interna y la de todas las capas
-t de student
-    Bonferroni para corregir los significativos: podria ser muy conservador
-    entonces conviene usar enova con contrastes:
-        control de caso base: osea entre el 0 y cada capa
-        control de dosis: entre capa consecutivas
-        Poner los dos plots por separado y agregar la mediana al boxplot
-pasar todo a dataframe
-guardame las distancias y acomodar el modelo para usar eso
-
-CONSULTAS
-como aplico anova? para diferenciar como se comporta la diferencia entre la capa 0 y las otras para cada fila? 
-o tomo el promerio/error de cada capa y ls comparo con la capa 0?
-Que resultado quiero tener? 
-requiere post hoc?
-que tipo de contraste aplico?
+OKpasar todo a dataframe
 '''
