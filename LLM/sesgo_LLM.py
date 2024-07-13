@@ -418,4 +418,15 @@ analizar misma palabra distintos contextos
 OK agregar en la resta la division por sesgo base para normalizar
 NOSumamos uno a cada sesgo porque la distancia coseno va de -1 a 1 y queremos evitar los valores negativos
 OKpasar todo a dataframe
+
+-Pendientes-
+Pasar a que el csv sea que en cada fila este target+contexto
+usar el id num_comtexto*100+id_target para identificarlo (no el propio de pandas)
+hacer merge con el json de tota
+pasar el pandas a csv
+se usa pandas.wide_to_long para pasar de target+contexto1+contexto2 a target+contexto, target+contexto
+Tenerlo como id_palabra(el del csv) | contexto | numeroDeContexto | idtrial(que se forme con numeroDeContexto*100+id_palabra)
+
+Ver lo de modelos lineales mixtos
+Pasar el cvs a id_trial | sesgo| capa y ejecutar en R con sesgo ~
 '''
