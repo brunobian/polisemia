@@ -43,9 +43,10 @@ def find_target(text_ids, target, lista_sig, model_type, tokenizer):
     list_sig_ids = []
     for sig in lista_sig:
         if model_type == "GPT2":
-            # TODO: leer como funciona el encode si sig fuese una lista
-            sig_ids  = tokenizer.encode(" " + sig, return_tensors="pt").to("mps")#.to('cuda') 
-            sig_ids_list= sig_ids[0].tolist()  # si la palabra del significado tiene mas de un token, me quedo con el primero
+            #Se le pasa la palabra significado y se busca obtener una lista con los ids de los tokens contenidos en dicha palabra
+            #Converts a string to a sequence of ids (integer), using the tokenizer and vocabulary.
+            #Tomo el primer elemento del tensor porque los ids estan dentro de una matriz de tamaño [1, n] con n cantidad de tokens
+            sig_ids  = (tokenizer.encode(" " + sig, return_tensors="pt").to("mps"))[0]#.to('cuda') 
         elif model_type== "Llama2":
             sig_ids  = tokenizer.encode(sig, return_tensors="pt").to("mps")#.to('cuda')
             sig_ids  = sig_ids[0,1:]  # Saco el primer elemento que es <s>
@@ -91,7 +92,13 @@ def get_sig_embedding(model, model_type, sig, pesoDeSignificados):
 
     if model_type == "GPT2":
         for s in sig:
-            sig_embeddings_list.append(model.transformer.wte(s[0])) #Tomo el primer id para cada palabra de la lista de significado
+            # Obtengo un tensor con los embeddings de cada token que conforma la palabra significado
+            sig_tokens_embeddings = model.transformer.wte(s)
+            # Tomo el promedio de los embeddings de los tokens y luego lo formateo para que quede con shape [1,768]
+            sig_tokens_embeddings = torch.mean(sig_tokens_embeddings,dim=0).unsqueeze(0)
+            # Si en vez de usar el promedio, tomo el primer token (es esta opcion o el promedio)
+            #sig_tokens_embeddings = sig_tokens_embeddings[0].unsqueeze(0)
+            sig_embeddings_list.append(sig_tokens_embeddings) 
     elif model_type == "Llama2":
         for s in sig:
             sig_embeddings_list.append(model.get_input_embeddings().weight[s]) #Aca no tome el primero porque no estaba en el codigo original
@@ -99,13 +106,18 @@ def get_sig_embedding(model, model_type, sig, pesoDeSignificados):
         for s in sig:
             sig_embeddings_list.append(model.transformer.wte(s[0])) #Tomo el primer id para cada palabra de la lista de significado
 
-    '''?????????? ACA VA CON EL PROMEDIO PONDERADO ??????????'''
+    # Concateno los embeddings de los significados en una lista para poder operar con ellos
     stacked_embeddings = torch.stack(sig_embeddings_list)
+    # Creo un tensor con los pesos para poder operar con ellos
     pesoDeSignificados_tensor = torch.tensor(pesoDeSignificados).to("mps")#.to('cuda')
+    # Multiplico cada embedding por el peso respectivo 
     stacked_embeddings_pesados = stacked_embeddings * pesoDeSignificados_tensor.unsqueeze(1)
+    # Los sumo para poder hacer luego el promedio ponderado
     sig_embeddings_sum = torch.sum(stacked_embeddings_pesados, dim=0)
-    '''Hacer la division por la suma de lso pesos'''
+    # Hacer la division por la suma de los pesos (promedio ponderado)
     sig_embeddings_prom = torch.div(sig_embeddings_sum, sum(pesoDeSignificados))
+    
+    # VERSION PREVIA (sin lista de significados)
     #stacked_embeddings = torch.stack(sig_embeddings_list)
     #sig_embeddings = torch.nanmean(stacked_embeddings, dim=0)
 

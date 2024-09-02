@@ -11,10 +11,10 @@ import statsmodels.api as sm
 from statsmodels.formula.api import ols
 from statsmodels.stats.multicomp import pairwise_tukeyhsd, MultiComparison'''
 
-from modifyCsv import getStimuliAsDF, cargar_stimuli
-from calculateError import getPlots
+from modifyCsv import getStimuliMergedWithExperimentResults
+from plots import getPlots
 from getBias import getBias
-from getBias_withPreparedDf import getBias_withPreparedDf
+from getBias_forPreparedDf import getBias_forPreparedDf
 '''
 Observar que hay partes del codigo que estan comentadas, leer lo siguiente antes de ejecutar:
 - En el metodo "cargar_modelo" revisar que el path a usar este en la maquina donde estes ejecutando
@@ -65,11 +65,11 @@ layers = [0,1,2,3,4,5,6,7,8,9,10,11,12]
 #df = cargar_stimuli("Stimuli_conListaDeSignificadosConPeso.csv") #"Stimuli.csv"
 #lista_de_df = getBias(df, layers, m, model, tokenizer)
 
-#VERSION NUEVA (una fila por combinacion target-significado-contexto)
-df = getStimuliAsDF("Stimuli_conListaDeSignificadosConPeso.csv") #"Stimuli.csv"
-lista_de_df = getBias_withPreparedDf(df, layers, m, model, tokenizer)
+#VERSION CON EXPERIMENTOS (una fila por combinacion target-significado-contexto)
+df = getStimuliMergedWithExperimentResults('Stimuli.csv', 'test.experiment.json') 
+lista_de_df = getBias_forPreparedDf(df, layers, m, model, tokenizer)
 
-getPlots(lista_de_df, layers, df)
+getPlots(lista_de_df, layers)
 
 '''
 OK Cambiar el nombre del eje y "Error promedio"
@@ -88,13 +88,16 @@ NOSumamos uno a cada sesgo porque la distancia coseno va de -1 a 1 y queremos ev
 OKpasar todo a dataframe
 
 -Pendientes-
-Pasar a que el csv sea que en cada fila este target+contexto
+OKPasar a que el csv sea que en cada fila este target+contexto
 usar el id num_comtexto*100+id_target para identificarlo (no el propio de pandas)
-hacer merge con el json de tota
+hacer merge con el json de tota -> Agregar la columna answers
 pasar el pandas a csv
-se usa pandas.wide_to_long para pasar de target+contexto1+contexto2 a target+contexto, target+contexto
+OKse usa pandas.wide_to_long para pasar de target+contexto1+contexto2 a target+contexto, target+contexto
 Tenerlo como id_palabra(el del csv) | contexto | numeroDeContexto | idtrial(que se forme con numeroDeContexto*100+id_palabra)
 
 Ver lo de modelos lineales mixtos
 Pasar el cvs a id_trial | sesgo| capa y ejecutar en R con sesgo ~
+
+COSAS COPADAS A ANALISAR:
+- Revisar capa por capa como van variando sinonimos en un mismo contexto. Comparar la funcion que traza la evolucion del embedding de cada uno
 '''
