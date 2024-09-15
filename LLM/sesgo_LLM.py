@@ -18,8 +18,12 @@ from getBias_forPreparedDf import getBias_forPreparedDf
 '''
 Observar que hay partes del codigo que estan comentadas, leer lo siguiente antes de ejecutar:
 - En el metodo "cargar_modelo" revisar que el path a usar este en la maquina donde estes ejecutando
-    - En la de Bruno: "/data/brunobian/Documents/Repos/Repos_Analisis/awdlstm-cloze-task/data/models/clm-spanish"
-    - En la de Belu: "/Users/NaranjaX/Desktop/tesis/clm-spanish"
+    - En la de Bruno: 
+        - GPT2: "/data/brunobian/Documents/Repos/Repos_Analisis/awdlstm-cloze-task/data/models/clm-spanish"
+        - Modelo de Agus:
+    - En la de Belu: 
+        - GPT2: "/Users/NaranjaX/Desktop/tesis/clm-spanish"
+        - Modelo de Agus:
 - El modelo para Llama2 puede instalarse cada vez o buscarse en un repo en caso de estar instalado
 - Hay que usar ".to(cuda)" si usas la compu de Bruno y ".to("mps")" sino en la mac
 '''
@@ -39,7 +43,7 @@ def cargar_modelo(model_type, model_path=""):
         tokenizer = LlamaTokenizerFast.from_pretrained(ruta)                            
     elif model_type == "GPT2_wordlevel":
         tokenizer_dict_path = '/data/brunobian/Documents/Repos/Repos_Analisis/polisemia/LLM/models/data/brunobian/Documents/Repos/Repos_Analisis/awdlstm-cloze-task/data/models/clm-spanish_word_stimulidb+reddit/tokenizer/token_dict.pkl'
-        ruta = '/data/brunobian/Documents/Repos/Repos_Analisis/polisemia/LLM/models/data/brunobian/Documents/Repos/Repos_Analisis/awdlstm-cloze-task/data/models/clm-spanish_word_stimulidb+reddit/checkpoint-29160'
+        ruta = '/Users/NaranjaX/Desktop/tesis/modeloAgus/checkpoint-21940'#'/data/brunobian/Documents/Repos/Repos_Analisis/polisemia/LLM/models/data/brunobian/Documents/Repos/Repos_Analisis/awdlstm-cloze-task/data/models/clm-spanish_word_stimulidb+reddit/checkpoint-29160'
         model = AutoModelForCausalLM.from_pretrained(ruta).to("mps")#.to('cuda')
         try:
             with open(tokenizer_dict_path, 'rb') as tokenizer_file:

@@ -40,7 +40,7 @@ def get_plot(distances, errores_estandar, layers):
     plt.xticks(layers)
     plt.ylabel("Error promedio")
     plt.yticks(distances)
-    plt.savefig('nuevo/pltLayers_-layers.png')
+    plt.savefig('graficos/pltLayers_-layers.png')
     plt.show()
 
 def reordeno_por_targetcontexto (errores_por_capa):
@@ -77,7 +77,7 @@ def get_plot_with_scatterplot(distances, errores_promedio, errores_estandar, lay
     plt.legend()  # Mostrar leyenda con etiquetas de lista
     # Mostrar el gráfico
     plt.grid(True)
-    plt.savefig(f'nuevo/pltLayers_{name}_scatter.png')
+    plt.savefig(f'graficos/pltLayers_{name}_scatter.png')
     plt.close()
 
 def get_plots_for_each_target(distances, errores_promedio, errores_estandar, layers, df):

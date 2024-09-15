@@ -11,7 +11,6 @@ def dropAndRenameColumns(df):
 def getDf_byMeaningAndContext(df):
     df_by_signif = pd.wide_to_long(df, stubnames='significado', i='wordID', j='meaningID').reset_index()
     df_by_context = pd.wide_to_long(df_by_signif, stubnames='Contexto', i=['wordID', 'meaningID'], j='contextID').reset_index()
-    df_by_context['meaningID'] = df_by_context['meaningID'] - 1
     df_reordered = df_by_context[['wordID','target','oracion','meaningID','significado','contextID', 'Contexto']] 
     df_reordered = df_reordered.sort_values(by=['wordID', 'meaningID', 'contextID'], ascending=[True, True, False])
     return df_reordered
