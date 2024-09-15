@@ -180,6 +180,7 @@ for c, w in enumerate(vocab): # Recorre la lista de palabras nuevas (vocab)
     embs[c] = torch.mean(subembs, axis = 0) # Creo el embedding nuevo con el promedio de los embeddings subpalabra
 
 # TODO: a mano buscar el embedding de punto y de coma original para meterlo en las pos de <dot> y <comma>
+
 #embs[vocab.index(UNK)] = model.transformer.wte.weight.data[tokenizer.vocab[tokenizer.unk_token]]
 tokenizer_vocab = tokenizer.get_vocab()
 embs[vocab.index(UNK)] = model.transformer.wte.weight.data[tokenizer_vocab[tokenizer.unk_token]]
