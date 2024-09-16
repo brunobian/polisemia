@@ -38,7 +38,7 @@ def cargar_modelo(model_type, model_path=""):
         #model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-2-13b-hf", device_map="auto",load_in_8bit=True,cache_dir="/data/brunobian/languageModels/")    
         tokenizer = LlamaTokenizerFast.from_pretrained(ruta)                            
     elif model_type == "GPT2_wordlevel":
-        tokenizer_dict_path = '/data/brunobian/Documents/Repos/Repos_Analisis/polisemia/LLM/models/data/brunobian/Documents/Repos/Repos_Analisis/awdlstm-cloze-task/data/models/clm-spanish_word_stimulidb+reddit/tokenizer/token_dict.pkl'
+        '''tokenizer_dict_path = '/data/brunobian/Documents/Repos/Repos_Analisis/polisemia/LLM/models/data/brunobian/Documents/Repos/Repos_Analisis/awdlstm-cloze-task/data/models/clm-spanish_word_stimulidb+reddit/tokenizer/token_dict.pkl'
         ruta = '/data/brunobian/Documents/Repos/Repos_Analisis/polisemia/LLM/models/data/brunobian/Documents/Repos/Repos_Analisis/awdlstm-cloze-task/data/models/clm-spanish_word_stimulidb+reddit/checkpoint-29160'
         model = AutoModelForCausalLM.from_pretrained(ruta).to("mps")#.to('cuda')
         try:
@@ -49,9 +49,12 @@ def cargar_modelo(model_type, model_path=""):
                 unk_token = tokenizer_dict['UNK']
         except Exception as e:
             print(f"Failed to load tokenizer dictionary: {e}")
-
         tokenizer = Tokenizer(WordLevel(vocab = word2int, unk_token = unk_token))
-        tokenizer.pre_tokenizer = Sequence([Punctuation('removed'), Whitespace()])
+        tokenizer.pre_tokenizer = Sequence([Punctuation('removed'), Whitespace()])'''
+        ruta_tokenizer = '/Users/NaranjaX/Desktop/tesis/modeloAgus/tokenizer' #'/data/brunobian/Documents/Repos/Repos_Analisis/polisemia/LLM/tokenizer'
+        ruta = '/Users/NaranjaX/Desktop/tesis/modeloAgus/checkpoint-21940' #'/data/brunobian/Documents/Repos/Repos_Analisis/polisemia/LLM/model/checkpoint-21940'
+        model = AutoModelForCausalLM.from_pretrained(ruta_wl, device_map = "auto")
+        tokenizer = CustomTokenizer.from_pretrained(ruta_tokenizer)
     else:
         print("modelo incorrecto")
     #TODO: Ver que nos gustaria devolver
@@ -66,7 +69,7 @@ layers = [0,1,2,3,4,5,6,7,8,9,10,11,12]
 #lista_de_df = getBias(df, layers, m, model, tokenizer)
 
 #VERSION CON EXPERIMENTOS (una fila por combinacion target-significado-contexto)
-df = getStimuliMergedWithExperimentResults('Stimuli.csv', 'test.experiment.json') 
+df = getStimuliMergedWithExperimentResults('Stimuli.csv', 'test.experiment.json')
 lista_de_df = getBias_forPreparedDf(df, layers, m, model, tokenizer)
 
 getPlots(lista_de_df, layers)
