@@ -20,8 +20,8 @@ def renameContextID_byMeaningIDWordID(df, byMeaningID=False, byWordID=False):
     return df
 
 def filterCombinations(df):
-    ##Quiero mantener: 30-, 10-, 31-, 21-
-    mask = df['combinationID'].str.startswith(('11','20'))
+    ##Quiero mantener: 31-, 11-, 32-, 22-
+    mask = df['combinationID'].str.startswith(('10','12','20','21','30'))
     return df[~mask]
 
 def formatMeaning(row):

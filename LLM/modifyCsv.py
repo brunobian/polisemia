@@ -9,16 +9,18 @@ def mergeStimuliAndResults(stimuli, results):
     merged_df = merged_df.rename(columns={'answers': 'significado'})
     return merged_df
 
-def getStimuliMergedWithExperimentResults(stimuli, results):
+def getStimuliMergedWithExperimentResults(stimuli, results, basepath):
     df = getStimuliAsDF(stimuli)
     resultsDf = importAndCleanExperimentResults(results)
     merged_df = mergeStimuliAndResults(df, resultsDf)
+    merged_df.to_csv(f"{basepath}df_inicial.csv")
     return merged_df
 
-def getStimuliMergedWithFormattedExperimentResults(stimuli, results):
+def getStimuliMergedWithFormattedExperimentResults(stimuli, results, basepath):
     df = getStimuliAsDF(stimuli)
     resultsDf = importExperimentResults(results)
     merged_df = mergeStimuliAndResults(df, resultsDf)
+    merged_df.to_csv(f"{basepath}df_inicial.csv")
     return merged_df
 '''
 DF RETURNED:

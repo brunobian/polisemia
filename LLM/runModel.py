@@ -46,7 +46,7 @@ def find_target(text_ids, target, lista_sig, model_type, tokenizer):
             #Se le pasa la palabra significado y se busca obtener una lista con los ids de los tokens contenidos en dicha palabra
             #Converts a string to a sequence of ids (integer), using the tokenizer and vocabulary.
             #Tomo el primer elemento del tensor porque los ids estan dentro de una matriz de tamaño [1, n] con n cantidad de tokens
-            sig_ids  = (tokenizer.encode(" " + sig, return_tensors="pt").to("mps")).squeeze()#.to('cuda') 
+            sig_ids  = (tokenizer.encode(" " + sig, return_tensors="pt").to("mps"))[0]#.to('cuda') 
         elif model_type== "Llama2":
             sig_ids  = tokenizer.encode(sig, return_tensors="pt").to("mps")#.to('cuda')
             sig_ids  = sig_ids[0,1:]  # Saco el primer elemento que es <s>

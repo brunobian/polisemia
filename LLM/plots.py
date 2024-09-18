@@ -32,16 +32,18 @@ def calculo_distancia_entre_sesgoBase_sesgoGenerado(row):
     e = 1
     return (row.sesgoGen - row.sesgoBase)
 
-def get_plot(distances, errores_estandar, layers):
+def get_plot(distances, errores_estandar, layers, basepath, titulo_segun):
     '''figsize=(10,10))'''
+    plt.figure(figsize=(10,15))
     plt.errorbar(layers, distances, yerr=(errores_estandar))
-    plt.title("Sesgos segun cada capa de GPT2")
+    plt.title(f"Sesgos {titulo_segun}en cada capa de GPT2")
     plt.xlabel("Capas")
     plt.xticks(layers)
-    plt.ylabel("Error promedio")
-    plt.yticks(distances)
-    plt.savefig('graficos/pltLayers_-layers.png')
-    plt.show()
+    plt.ylabel("Diferencia entre sesgo generado y sesgo base")
+    #plt.yticks(distances)
+    plt.savefig(f'{basepath}plot-layers.png')
+    plt.savefig(f'{basepath}plot-layers.svg')
+    plt.close()
 
 def reordeno_por_targetcontexto (errores_por_capa):
     # Traspongo la matriz para que este ordenada por filas en vez de por capas
@@ -52,7 +54,7 @@ def reordeno_por_targetcontexto (errores_por_capa):
     # - Queda [n, 13] porque son 12 filas mas la 0 (previa a aplicar el modelo)
     return [[fila[i] for fila in errores_por_capa ] for i in range(len(errores_por_capa[0]))] 
 
-def get_plot_with_scatterplot(distances, errores_promedio, errores_estandar, layers, df, size = (10,40), target_a_graficar = 'todos los targets', name = 'allTargets', nombre_target = ''):
+def get_plot_with_scatterplot(distances, errores_promedio, errores_estandar, layers, df, basepath, titulo_segun, size = (10,40), target_a_graficar = 'todos los targets', name = 'allTargets', nombre_target = ''):
     colors = plt.cm.tab20.colors
     num_colors = len(distances)
     colors_extended = colors * (num_colors // len(colors)) + colors[:num_colors % len(colors)]
@@ -70,40 +72,40 @@ def get_plot_with_scatterplot(distances, errores_promedio, errores_estandar, lay
     #for i_dist, lista_dist in enumerate(distances):
     #    plt.scatter(layers, lista_dist, c=colors_extended[i_dist], label=f'Target con meaning ID {i_dist}')  # Scatter plot para cada lista
     plt.errorbar(layers, errores_promedio, yerr=errores_estandar, fmt='o', color='black', capsize=5, label='Error estándar')
-    plt.title(f"Scatter plot de sesgos para {target_a_graficar} según cada capa de GPT2")
+    plt.title(f"Scatter plot de sesgos para {target_a_graficar} {titulo_segun}en cada capa de GPT2")
     plt.xlabel("Capa del modelo")
     plt.ylabel("Diferencia entre sesgo generado y sesgo base")
     plt.xticks(layers)
     plt.legend()  # Mostrar leyenda con etiquetas de lista
     # Mostrar el gráfico
     plt.grid(True)
-    plt.savefig(f'graficos/pltLayers_{name}_scatter.png')
+    plt.savefig(f'{basepath}pltLayers_{name}_scatter.png')
     plt.close()
 
-def get_plots_for_each_target(distances, errores_promedio, errores_estandar, layers, df):
+def get_plots_for_each_target(distances, errores_promedio, errores_estandar, layers, df, basepath, titulo_segun):
     for i in range(0, len(distances), 2):
         distances_for_each_target = [distances[i], distances[i+1]]
         target = df['target'][i]
         indiceTarget = (i/2)
-        get_plot_with_scatterplot(distances_for_each_target, errores_promedio, errores_estandar, layers, df, (10,15), f'el target {target}', f'target_{indiceTarget+1}', target)
+        get_plot_with_scatterplot(distances_for_each_target, errores_promedio, errores_estandar, layers, df, basepath, titulo_segun, (10,15), f'el target {target}', f'target_{indiceTarget+1}', target)
 
-def get_plot_with_boxplot(distances, errores_promedio, errores_estandar, layers):
+def get_plot_with_boxplot(distances, errores_promedio, errores_estandar, layers, basepath, titulo_segun):
     plt.figure(figsize=(10,15))
     plt.boxplot(distances, positions=layers)
     plt.errorbar(layers, errores_promedio, yerr=(errores_estandar))
-    plt.title("Sesgos segun cada capa de GPT2")
+    plt.title(f"Sesgos {titulo_segun}en cada capa de GPT2")
     plt.xlabel("Capas")
     plt.xticks(layers)
     plt.ylabel("Error promedio")
     #plt.yticks(errores_promedio)
-    plt.savefig('nuevo/pltLayers_allLayers_boxplot.png')
+    plt.savefig(f'{basepath}pltLayers_allLayers_boxplot.png')
     plt.show()
 
-def getPlots(lista_de_df, layers):
+def getPlots(lista_de_df, layers, basepath, titulo_segun):
     errores_por_capa, error_promedio_por_capa, error_estandar_por_capa = get_errores_para_todas_las_capas(lista_de_df, layers)
     ## Para graficar una linea con errores estandar
-    #get_plot(error_promedio_por_capa, error_estandar_por_capa, layers)
-    ## Para graficar con boxplot
+    get_plot(error_promedio_por_capa, error_estandar_por_capa, layers, basepath, titulo_segun)
+    ## Para graficar con scatterplot
     errores_por_target = reordeno_por_targetcontexto(errores_por_capa)
-    get_plot_with_scatterplot(errores_por_target, error_promedio_por_capa, error_estandar_por_capa, layers, lista_de_df[0])
-    get_plots_for_each_target(errores_por_target, error_promedio_por_capa, error_estandar_por_capa, layers, lista_de_df[0])
+    get_plot_with_scatterplot(errores_por_target, error_promedio_por_capa, error_estandar_por_capa, layers, lista_de_df[0], basepath, titulo_segun)
+    get_plots_for_each_target(errores_por_target, error_promedio_por_capa, error_estandar_por_capa, layers, lista_de_df[0], basepath, titulo_segun)

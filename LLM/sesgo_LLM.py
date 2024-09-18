@@ -61,20 +61,25 @@ def cargar_modelo(model_type, model_path=""):
     #TODO: Ver que nos gustaria devolver
     return model, tokenizer
 
-m = "GPT2"#"Llama2"#
-model, tokenizer = cargar_modelo(m) #TODO: Pensar mejor como devolver esto, si hace falta estar pasando las tres cosas o que
+
 layers = [0,1,2,3,4,5,6,7,8,9,10,11,12]
+### GPT 2 ###
+m = "GPT2"
+basepath = 'versionGPT2/sinExperimento/'#'versionGPT2/conExperimento(2daVersion)/'
+titulo_segun = "segun una sola palabra significado "#"segun lista de palabras significado "
+
+model, tokenizer = cargar_modelo(m) #TODO: Pensar mejor como devolver esto, si hace falta estar pasando las tres cosas o que
 
 #VERSION VIEJA (una fila por target)
 #df = cargar_stimuli("Stimuli_conListaDeSignificadosConPeso.csv") #"Stimuli.csv"
 #lista_de_df = getBias(df, layers, m, model, tokenizer)
 
 #VERSION CON EXPERIMENTOS (una fila por combinacion target-significado-contexto)
-'''df = getStimuliMergedWithExperimentResults('Stimuli.csv', 'test.experiment.json') '''
-df = getStimuliMergedWithFormattedExperimentResults('Stimuli.csv', 'experiment_results_formatted.csv')
-lista_de_df = getBias_forPreparedDf(df, layers, m, model, tokenizer)
+df = getStimuliMergedWithExperimentResults('Stimuli.csv', 'testVacio.experiment.json', basepath)
+'''df = getStimuliMergedWithFormattedExperimentResults('Stimuli.csv', f'{basepath}experiment_results_formatted.csv', basepath)'''
+lista_de_df = getBias_forPreparedDf(df, layers, m, model, tokenizer, basepath)
 
-getPlots(lista_de_df, layers)
+getPlots(lista_de_df, layers, basepath, titulo_segun)
 
 '''
 OK Cambiar el nombre del eje y "Error promedio"

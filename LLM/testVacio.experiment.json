@@ -1,0 +1,44 @@
+[{
+  "_id": {
+    "$oid": "66b59a153c41f57c53ef6fdb"
+  },
+  "userId": "84d89877f0d4041efb6bf91a16f0248f2fd573e6af05c19f96bedb9f882f7882",
+  "loginTime": {
+    "$date": "2024-08-09T04:24:50.214Z"
+  },
+  "tutorialTime": {
+    "$date": "2024-08-09T04:24:56.943Z"
+  },
+  "trials": [
+    {
+      "trialNumber": 0,
+      "wordID": 111111,
+      "meaningID": 3,
+      "word": "aaa",
+      "context": "Si no pagaba la tarjeta, iba a tener que pagar intereses.",
+      "answers": [
+        "Dinero",
+        "Dólares",
+        "Pago"
+      ],
+      "wordOrder": [
+        "Crédito",
+        "Débito",
+        "Prestamo",
+        "Dinero",
+        "Acciones",
+        "Dólares",
+        "Pesos",
+        "Pago"
+      ],
+      "submitTime": {
+        "$date": "2024-08-09T04:25:04.480Z"
+      },
+      "_id": {
+        "$oid": "66b59a2324fbad9a64b38e72"
+      }
+    }
+  ],
+  "lastTrialSubmitted": 2,
+  "__v": 3
+}]
