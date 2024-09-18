@@ -1,6 +1,7 @@
 import pandas as pd
 import json
 from collections import Counter
+import ast
 
 def loadExperimentResults(results):
     with open(results) as f:
@@ -65,3 +66,18 @@ def cleanResults(resultsDf):
 def importAndCleanExperimentResults(file):
     resultsDf = loadExperimentResults(file).reset_index()
     return cleanResults(resultsDf)
+
+def toLower(df):
+    df['target'] = df['target'].str.lower()
+    df['answers'] = df['answers'].apply(lambda row: [(str(item[0]).lower(), int(item[1])) for item in ast.literal_eval(row)])
+    '''
+    DF RETURNED:
+    wordID    target  meaningID        answers  
+         0      raya          1     [(animales,1)]   
+    '''
+    return df
+
+def importExperimentResults(file):
+    resultsDf = pd.read_csv(file)
+    resultsToLower = toLower(resultsDf)
+    return resultsToLower

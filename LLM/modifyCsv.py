@@ -1,6 +1,6 @@
 import pandas as pd
 from modifyStimuli import getStimuliAsDF 
-from modifyExperimentResults import importAndCleanExperimentResults
+from modifyExperimentResults import importAndCleanExperimentResults, importExperimentResults
 
 def mergeStimuliAndResults(stimuli, results):
     merged_df = pd.merge(stimuli, results, on=['wordID','target','meaningID'], how='left').reset_index()
@@ -15,6 +15,11 @@ def getStimuliMergedWithExperimentResults(stimuli, results):
     merged_df = mergeStimuliAndResults(df, resultsDf)
     return merged_df
 
+def getStimuliMergedWithFormattedExperimentResults(stimuli, results):
+    df = getStimuliAsDF(stimuli)
+    resultsDf = importExperimentResults(results)
+    merged_df = mergeStimuliAndResults(df, resultsDf)
+    return merged_df
 '''
 DF RETURNED:
 index  wordID      target  meaningID  contextID combinationID         significado                                       oracion                                  Contexto

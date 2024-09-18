@@ -11,7 +11,7 @@ import statsmodels.api as sm
 from statsmodels.formula.api import ols
 from statsmodels.stats.multicomp import pairwise_tukeyhsd, MultiComparison'''
 
-from modifyCsv import getStimuliMergedWithExperimentResults
+from modifyCsv import getStimuliMergedWithExperimentResults, getStimuliMergedWithFormattedExperimentResults
 from plots import getPlots
 from getBias import getBias
 from getBias_forPreparedDf import getBias_forPreparedDf
@@ -70,7 +70,8 @@ layers = [0,1,2,3,4,5,6,7,8,9,10,11,12]
 #lista_de_df = getBias(df, layers, m, model, tokenizer)
 
 #VERSION CON EXPERIMENTOS (una fila por combinacion target-significado-contexto)
-df = getStimuliMergedWithExperimentResults('Stimuli.csv', 'test.experiment.json') 
+'''df = getStimuliMergedWithExperimentResults('Stimuli.csv', 'test.experiment.json') '''
+df = getStimuliMergedWithFormattedExperimentResults('Stimuli.csv', 'experiment_results_formatted.csv')
 lista_de_df = getBias_forPreparedDf(df, layers, m, model, tokenizer)
 
 getPlots(lista_de_df, layers)
