@@ -33,14 +33,13 @@ def calculo_distancia_entre_sesgoBase_sesgoGenerado(row):
     return (row.sesgoGen - row.sesgoBase)
 
 def get_plot(distances, errores_estandar, layers, basepath, titulo_segun):
-    '''figsize=(10,10))'''
     plt.figure(figsize=(10,15))
     plt.errorbar(layers, distances, yerr=(errores_estandar))
     plt.title(f"Sesgos {titulo_segun}en cada capa de GPT2")
     plt.xlabel("Capas")
     plt.xticks(layers)
     plt.ylabel("Diferencia entre sesgo generado y sesgo base")
-    #plt.yticks(distances)
+    plt.ylim(0, 0.035)
     plt.savefig(f'{basepath}plot-layers.png')
     plt.savefig(f'{basepath}plot-layers.svg')
     plt.close()
