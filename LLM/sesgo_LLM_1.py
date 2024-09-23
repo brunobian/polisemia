@@ -1,6 +1,6 @@
-from transformers import LlamaTokenizerFast,AutoModelForCausalLM,GPT2Tokenizer  
+from transformers import LlamaTokenizerFast,AutoModelForCausalLM,GPT2Tokenizer, AutoTokenizer
 from tokenizers import Tokenizer
-from custom_tokenizer import CustomTokenizer   
+#from custom_tokenizer import CustomTokenizer   
 from tokenizers.models import WordLevel
 from tokenizers.pre_tokenizers import Whitespace, Punctuation, Sequence
 from tokenizers.processors import TemplateProcessing
@@ -19,8 +19,14 @@ from getBias_forPreparedDf import getBias_forPreparedDf
 '''
 Observar que hay partes del codigo que estan comentadas, leer lo siguiente antes de ejecutar:
 - En el metodo "cargar_modelo" revisar que el path a usar este en la maquina donde estes ejecutando
-    - En la de Bruno: "/data/brunobian/Documents/Repos/Repos_Analisis/awdlstm-cloze-task/data/models/clm-spanish"
-    - En la de Belu: "/Users/NaranjaX/Desktop/tesis/clm-spanish"
+    - En la de Bruno: 
+        ruta de gpt2 -> "/data/brunobian/Documents/Repos/Repos_Analisis/awdlstm-cloze-task/data/models/clm-spanish"
+        ruta de gpt2-worldlevel -> '/data/brunobian/Documents/Repos/Repos_Analisis/polisemia/LLM/model/checkpoint-21940'
+        ruta de tokenizer de gpt2-worldlevel ->'/data/brunobian/Documents/Repos/Repos_Analisis/polisemia/LLM/tokenizer'
+    - En la de Belu: 
+        ruta de gpt2 -> "/Users/NaranjaX/Desktop/tesis/clm-spanish"
+        ruta de gpt2-worldlevel -> '/Users/NaranjaX/Desktop/tesis/modeloAgus/checkpoint-21940'
+        ruta de tokenizer de gpt2-worldlevel -> '/Users/NaranjaX/Desktop/tesis/modeloAgus/tokenizer'
 - El modelo para Llama2 puede instalarse cada vez o buscarse en un repo en caso de estar instalado
 - Hay que usar ".to(cuda)" si usas la compu de Bruno y ".to("mps")" sino en la mac
 '''
@@ -41,7 +47,7 @@ def cargar_modelo(model_type, model_path=""):
     elif model_type == "GPT2_wordlevel":
         ruta = '/Users/NaranjaX/Desktop/tesis/modeloAgus/checkpoint-21940' #'/data/brunobian/Documents/Repos/Repos_Analisis/polisemia/LLM/model/checkpoint-21940'
         tokenizer_path = '/Users/NaranjaX/Desktop/tesis/modeloAgus/tokenizer' #'/data/brunobian/Documents/Repos/Repos_Analisis/polisemia/LLM/tokenizer'
-        tokenizer = CustomTokenizer.from_pretrained(tokenizer_path)
+        tokenizer = AutoTokenizer.from_pretrained(tokenizer_path)
         model = AutoModelForCausalLM.from_pretrained(ruta).to("mps")#.to('cuda')
         '''VERSION DE AGUS ARRIBA
         tokenizer_dict_path = '/data/brunobian/Documents/Repos/Repos_Analisis/polisemia/LLM/models/data/brunobian/Documents/Repos/Repos_Analisis/awdlstm-cloze-task/data/models/clm-spanish_word_stimulidb+reddit/tokenizer/token_dict.pkl'
