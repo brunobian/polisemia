@@ -63,15 +63,15 @@ def reordeno_matriz(sesgos, df_original, basepath):
             assert(CID3 == '32'+wordID)
             assert(CID4 == '22'+wordID)
             target = df_original[df_original['wordID']==int(wordID)]['target'].to_list()[0]
-            df.append([wordID, target, 0, sesgoCID1[nlayer], sesgoCID2[nlayer]])
-            df.append([wordID, target, 1, sesgoCID3[nlayer], sesgoCID4[nlayer]])
+            df.append([wordID, target, 1, sesgoCID1[nlayer], sesgoCID2[nlayer]])
+            df.append([wordID, target, 2, sesgoCID3[nlayer], sesgoCID4[nlayer]])
         '''
         tengo
         [capa0:  [[0, 1, sesgoBase, sesgoGen],
                   [0, 2, sesgoBase, sesgoGen]],
         ...
-        capa12: [[N, 0, sesgoBase, sesgoGen],
-                 [N, 1, sesgoBase, sesgoGen]]]] 
+        capa12: [[N, 1, sesgoBase, sesgoGen],
+                 [N, 2, sesgoBase, sesgoGen]]]] 
         '''
         df=pd.DataFrame(df, columns=titulos)
         df.to_csv(f"{basepath}sesgos_por_layer_{nlayer}.csv")

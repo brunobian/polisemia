@@ -1,30 +1,36 @@
 import matplotlib.pyplot as plt
+import pandas as pd
 
 ## Para las metricas
 
-def get_errores_para_todas_las_capas(lista_de_df, layers):
-    ## Para graficar una linea con errores estandar
-    error_promedio_por_capa = []
-    error_estandar_por_capa = []
-    ## Para graficar con boxplot
-    errores_por_capa = []
+def getCombinedDFAndExport(lista_df, basepath):
+    # Combinar todos los DataFrames y exportar  
+    combined_df = pd.concat(lista_df, ignore_index=True)
+    reorder_columns_df = combined_df[['layer','wordID','meaningID','target','sesgoBase','sesgoGen','error','meanError','standardError']] 
+    reorder_rows_df = reorder_columns_df.sort_values(by=['wordID', 'meaningID', 'layer'], ascending=[True, True, True])
+    reorder_rows_df.to_csv(f'{basepath}errorByLayer.csv', index=False)
+    return reorder_rows_df
+
+def get_errores_para_todas_las_capas(lista_de_df, layers, basepath):
+    ## Para guardarme los errores en un csv
+    df_con_errores = []
     for layer in layers:
-        error_promedio, error_estandar, errores = calculo_error(lista_de_df[layer])
-        ## Para graficar una linea con errores estandar
-        error_promedio_por_capa.append(error_promedio)
-        error_estandar_por_capa.append(error_estandar)
-        ## Para graficar con boxplot tengo lista de listas
-        errores_por_capa.append(errores)
-    return errores_por_capa, error_promedio_por_capa, error_estandar_por_capa
+        df = calculo_error(lista_de_df[layer])
+        ## Para guardarme los errores en un csv
+        df['layer'] = layer
+        df_con_errores.append(df)
+    df_combinado = getCombinedDFAndExport(df_con_errores, basepath)
+    return df_combinado
 
 def calculo_error(df_por_contexto):
     ## Calculo el promedio de las distancias ortogonales a la identidad contando a cada target con un contexto por separado
     ## Entonces debo sumar las distancias de un mismo target pero distintos contextos
     ## La cantidad de distancias va a ser el doble de la cantidad de targets porque para cada uno hay dos contextos
     distancias_por_contexto = df_por_contexto.apply(lambda x : calculo_distancia_entre_sesgoBase_sesgoGenerado(x), axis = 1)
-    error_promedio = distancias_por_contexto.mean()
-    error_estandar = distancias_por_contexto.sem()
-    return error_promedio, error_estandar, distancias_por_contexto.to_list()
+    df_por_contexto['error'] = distancias_por_contexto
+    df_por_contexto['meanError'] = distancias_por_contexto.mean()
+    df_por_contexto['standardError'] = distancias_por_contexto.sem()
+    return  df_por_contexto
 
 def calculo_distancia_entre_sesgoBase_sesgoGenerado(row):
     ## Obtengo la distancia ortogonal a la identidad
@@ -32,79 +38,76 @@ def calculo_distancia_entre_sesgoBase_sesgoGenerado(row):
     e = 1
     return (row.sesgoGen - row.sesgoBase)
 
-def get_plot(distances, errores_estandar, layers, basepath, titulo_segun):
+def getLayersMeanAndStandardError(df):
+    generalError = df[(df['wordID'] == (df['wordID'].iloc[0])) & (df['meaningID'] == (df['meaningID'].iloc[0]))]
+    layers = generalError['layer']
+    meanErrors = generalError['meanError']
+    standardErrors = generalError['standardError']
+    return layers, meanErrors, standardErrors
+
+
+def get_plot(df, basepath, titulo_segun):
+    layers, meanErrors, standardErrors = getLayersMeanAndStandardError(df)
     plt.figure(figsize=(10,15))
-    plt.errorbar(layers, distances, yerr=(errores_estandar))
+    plt.errorbar(layers, meanErrors, yerr=(standardErrors))
     plt.title(f"Sesgos {titulo_segun}en cada capa de GPT2")
     plt.xlabel("Capas")
-    plt.xticks(layers)
     plt.ylabel("Diferencia entre sesgo generado y sesgo base")
-    plt.ylim(0, 0.035)
+    plt.ylim(-0.02, 0.035)
     plt.savefig(f'{basepath}plot-layers.png')
     plt.savefig(f'{basepath}plot-layers.svg')
     plt.close()
 
-def reordeno_por_targetcontexto (errores_por_capa):
-    # Traspongo la matriz para que este ordenada por filas en vez de por capas
-    # Errores por capa: capa x -> sesgo_gen - sesgo_base de cada fila
-    # Quiero modificarlo para tener una lista de listas con:
-    # - Cada lista se corresponde con una fila n 
-    # - Para cada fila, esta sesgo_gen - sesgo_base de cada capa
-    # - Queda [n, 13] porque son 12 filas mas la 0 (previa a aplicar el modelo)
-    return [[fila[i] for fila in errores_por_capa ] for i in range(len(errores_por_capa[0]))] 
-
-def get_plot_with_scatterplot(distances, errores_promedio, errores_estandar, layers, df, basepath, titulo_segun, size = (10,40), target_a_graficar = 'todos los targets', name = 'allTargets', nombre_target = ''):
+def getColors(num_colors):
     colors = plt.cm.tab20.colors
-    num_colors = len(distances)
-    colors_extended = colors * (num_colors // len(colors)) + colors[:num_colors % len(colors)]
+    return colors * (num_colors // len(colors)) + colors[:num_colors % len(colors)]
+
+def getLimits(df):
+    limiteMenor = df['error'].min()-0.001
+    limiteMayor = df['error'].max()+0.001
+    return limiteMenor, limiteMayor
+
+def filterByWord(df, word_id):
+    if(word_id != ''):
+        df = df[(df['wordID'] == word_id)]
+    return df
+
+def get_plot_with_scatterplot(df, basepath, titulo_segun, size = (10,40), target_a_graficar = 'todos los targets', name = 'allTargets', word_id = ''):
+    layers, meanErrors, standardErrors = getLayersMeanAndStandardError(df)
+    colors_extended = getColors(len(df[df['layer'] == 0]))
     plt.figure(figsize=size)
-    for i in range(0, len(distances), 2):
-        # Si tiene un target ingresado como parametro, uso ese (caso de grafico para solo un target)
-        # Sino, tomo el del df (caso de todos los targets juntos)
-        if(nombre_target == ''):
-           target = df['target'][i]
-        else:
-            target = nombre_target
-        # Genero el scatter plot para cada meaning del mismo target
-        plt.scatter(layers, distances[i], color=colors_extended[i], label=f'Target {target} con meaning ID 0')  # Scatter plot para cada lista
-        plt.scatter(layers, distances[i+1], color=colors_extended[i+1], label=f'Target {target} con meaning ID 1')  # Scatter plot para cada lista
-    #for i_dist, lista_dist in enumerate(distances):
-    #    plt.scatter(layers, lista_dist, c=colors_extended[i_dist], label=f'Target con meaning ID {i_dist}')  # Scatter plot para cada lista
-    plt.errorbar(layers, errores_promedio, yerr=errores_estandar, fmt='o', color='black', capsize=5, label='Error estándar')
+    limiteMenor, limiteMayor = getLimits(df)
+    df = filterByWord(df, word_id)
+    unique_combinations = df[['wordID', 'meaningID']].drop_duplicates()
+    for i, (word_id, meaning_id) in enumerate(unique_combinations.values):
+        subset = df[(df['wordID'] == word_id) & (df['meaningID'] == meaning_id)]
+        target = subset['target'].to_list()[0]
+        plt.scatter(subset['layer'], subset['error'], 
+                    label=f'Target {target} con meaning ID {meaning_id}',
+                    color=colors_extended[i])
+    plt.errorbar(layers, meanErrors, yerr=standardErrors, fmt='o', color='black', capsize=5, label='Error estándar')
     plt.title(f"Scatter plot de sesgos para {target_a_graficar} {titulo_segun}en cada capa de GPT2")
     plt.xlabel("Capa del modelo")
     plt.ylabel("Diferencia entre sesgo generado y sesgo base")
     plt.xticks(layers)
-    plt.legend()  # Mostrar leyenda con etiquetas de lista
-    # Mostrar el gráfico
+    plt.ylim(limiteMenor, limiteMayor)
+    plt.legend()
     plt.grid(True)
     plt.savefig(f'{basepath}pltLayers_{name}_scatter.png')
     plt.close()
 
-def get_plots_for_each_target(distances, errores_promedio, errores_estandar, layers, df, basepath, titulo_segun):
-    for i in range(0, len(distances), 2):
-        distances_for_each_target = [distances[i], distances[i+1]]
-        target = df['target'][i]
-        indiceTarget = (i/2)
-        get_plot_with_scatterplot(distances_for_each_target, errores_promedio, errores_estandar, layers, df, basepath, titulo_segun, (10,15), f'el target {target}', f'target_{indiceTarget+1}', target)
-
-def get_plot_with_boxplot(distances, errores_promedio, errores_estandar, layers, basepath, titulo_segun):
-    plt.figure(figsize=(10,15))
-    plt.boxplot(distances, positions=layers)
-    plt.errorbar(layers, errores_promedio, yerr=(errores_estandar))
-    plt.title(f"Sesgos {titulo_segun}en cada capa de GPT2")
-    plt.xlabel("Capas")
-    plt.xticks(layers)
-    plt.ylabel("Error promedio")
-    #plt.yticks(errores_promedio)
-    plt.savefig(f'{basepath}pltLayers_allLayers_boxplot.png')
-    plt.show()
+def get_plots_for_each_target(df, basepath, titulo_segun):
+    unique_combinations = df[['wordID']].drop_duplicates()
+    for word_id in unique_combinations.values:
+        word_id = word_id[0]
+        subset_word = df[(df['wordID'] == word_id)]
+        target = subset_word['target'].unique()
+        get_plot_with_scatterplot(df, basepath, titulo_segun, (10,15), f'el target {target}', f'target_{int(word_id)+1}', word_id)
 
 def getPlots(lista_de_df, layers, basepath, titulo_segun):
-    errores_por_capa, error_promedio_por_capa, error_estandar_por_capa = get_errores_para_todas_las_capas(lista_de_df, layers)
+    df = get_errores_para_todas_las_capas(lista_de_df, layers, basepath)
     ## Para graficar una linea con errores estandar
-    get_plot(error_promedio_por_capa, error_estandar_por_capa, layers, basepath, titulo_segun)
+    get_plot(df, f'{basepath}plots/', titulo_segun)
     ## Para graficar con scatterplot
-    errores_por_target = reordeno_por_targetcontexto(errores_por_capa)
-    get_plot_with_scatterplot(errores_por_target, error_promedio_por_capa, error_estandar_por_capa, layers, lista_de_df[0], basepath, titulo_segun)
-    get_plots_for_each_target(errores_por_target, error_promedio_por_capa, error_estandar_por_capa, layers, lista_de_df[0], basepath, titulo_segun)
+    get_plot_with_scatterplot(df, f'{basepath}plots/', titulo_segun)
+    get_plots_for_each_target(df, f'{basepath}plots/', titulo_segun)
