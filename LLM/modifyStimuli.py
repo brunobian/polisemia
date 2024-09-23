@@ -11,7 +11,6 @@ def dropAndRenameColumns(df):
 def getDf_byMeaningAndContext(df):
     df_by_signif = pd.wide_to_long(df, stubnames='significado', i='wordID', j='meaningID').reset_index()
     df_by_context = pd.wide_to_long(df_by_signif, stubnames='Contexto', i=['wordID', 'meaningID'], j='contextID').reset_index()
-    df_by_context['meaningID'] = df_by_context['meaningID'] - 1
     df_reordered = df_by_context[['wordID','target','oracion','meaningID','significado','contextID', 'Contexto']] 
     df_reordered = df_reordered.sort_values(by=['wordID', 'meaningID', 'contextID'], ascending=[True, True, False])
     return df_reordered
@@ -21,8 +20,8 @@ def renameContextID_byMeaningIDWordID(df, byMeaningID=False, byWordID=False):
     return df
 
 def filterCombinations(df):
-    ##Quiero mantener: 30-, 10-, 31-, 21-
-    mask = df['combinationID'].str.startswith(('11','20'))
+    ##Quiero mantener: 31-, 11-, 32-, 22-
+    mask = df['combinationID'].str.startswith(('10','12','20','21','30'))
     return df[~mask]
 
 def formatMeaning(row):

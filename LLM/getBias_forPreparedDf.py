@@ -42,7 +42,7 @@ def get_sesgo_de_todas_capas_por_fila(row, layers, m, model, tokenizer):
     list_bias_by_layer = get_diference_multiple_context_all_layer(sig, pesos, row.Contexto, row.target, row.oracion, layers, m, model, tokenizer)
     return [row.combinationID, list_bias_by_layer]
 
-def reordeno_matriz(sesgos, df_original):
+def reordeno_matriz(sesgos, df_original, basepath):
     '''
     tengo
     [[combinationId1,   [capa0, ..., capa12]],
@@ -58,30 +58,30 @@ def reordeno_matriz(sesgos, df_original):
         # Mostrar los resultados
         for CID1, sesgoCID1, CID2, sesgoCID2, CID3, sesgoCID3, CID4, sesgoCID4 in bloques:
             wordID = CID1[-2:]
-            assert(CID1 == '30'+wordID)
-            assert(CID2 == '10'+wordID)
-            assert(CID3 == '31'+wordID)
-            assert(CID4 == '21'+wordID)
+            assert(CID1 == '31'+wordID)
+            assert(CID2 == '11'+wordID)
+            assert(CID3 == '32'+wordID)
+            assert(CID4 == '22'+wordID)
             target = df_original[df_original['wordID']==int(wordID)]['target'].to_list()[0]
-            df.append([wordID, target, 0, sesgoCID1[nlayer], sesgoCID2[nlayer]])
-            df.append([wordID, target, 1, sesgoCID3[nlayer], sesgoCID4[nlayer]])
+            df.append([wordID, target, 1, sesgoCID1[nlayer], sesgoCID2[nlayer]])
+            df.append([wordID, target, 2, sesgoCID3[nlayer], sesgoCID4[nlayer]])
         '''
         tengo
-        [capa0:  [[0, 0, sesgoBase, sesgoGen],
-                  [0, 1, sesgoBase, sesgoGen]],
+        [capa0:  [[0, 1, sesgoBase, sesgoGen],
+                  [0, 2, sesgoBase, sesgoGen]],
         ...
-        capa12: [[N, 0, sesgoBase, sesgoGen],
-                 [N, 1, sesgoBase, sesgoGen]]]] 
+        capa12: [[N, 1, sesgoBase, sesgoGen],
+                 [N, 2, sesgoBase, sesgoGen]]]] 
         '''
         df=pd.DataFrame(df, columns=titulos)
-        df.to_csv(f"nuevo/sesgos_por_layer_{nlayer}.csv")
+        df.to_csv(f"{basepath}sesgos_por_layer_{nlayer}.csv")
         pd_by_layer.append(df)
     return pd_by_layer
 
-def getBias_forPreparedDf(df, layers, m, model, tokenizer):
+def getBias_forPreparedDf(df, layers, m, model, tokenizer, basepath):
     ## Para obtener los sesgos ejecutando el modelo la menor cantidad de veces
     sesgos_de_capas = (df.apply(lambda r: get_sesgo_de_todas_capas_por_fila(r, layers, m, model, tokenizer), axis=1))
-    lista_de_df = reordeno_matriz(sesgos_de_capas, df)
+    lista_de_df = reordeno_matriz(sesgos_de_capas, df, basepath)
     return lista_de_df
 
 '''

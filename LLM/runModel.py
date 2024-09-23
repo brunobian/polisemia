@@ -49,7 +49,17 @@ def find_target(text_ids, target, lista_sig, model_type, tokenizer):
             #Se le pasa la palabra significado y se busca obtener una lista con los ids de los tokens contenidos en dicha palabra
             #Converts a string to a sequence of ids (integer), using the tokenizer and vocabulary.
             #Tomo el primer elemento del tensor porque los ids estan dentro de una matriz de tamaño [1, n] con n cantidad de tokens
-            sig_ids  = (tokenizer.encode(" " + sig, return_tensors="pt").to("mps")).squeeze()#.to('cuda') 
+            ids = (tokenizer.encode(" " + sig, return_tensors="pt").to("mps"))#.to('cuda') 
+            assert(ids.size()[0] == 1)
+            '''shapePreModif = ids.size()
+            shapeSqueeze = ids.squeeze().size()
+            shapePrimerElem = ids[0].size()
+            typePreModif = type(ids)
+            typeSqueeze = type(ids.squeeze())
+            typePrimerElem = type(ids[0])
+            print(f'El shape antes era {shapePreModif}, con squeeze es {shapeSqueeze} y con el [0] es {shapePrimerElem}')
+            print(f'El type antes era {typePreModif}, con squeeze es {typeSqueeze} y con el [0] es {typePrimerElem}')'''
+            sig_ids  = ids[0]
         elif model_type== "Llama2":
             sig_ids  = tokenizer.encode(sig, return_tensors="pt").to("mps")#.to('cuda')
             sig_ids  = sig_ids[0,1:]  # Saco el primer elemento que es <s>
@@ -103,7 +113,7 @@ def get_sig_embedding(model, model_type, sig, pesoDeSignificados):
             # Tomo el promedio de los embeddings de los tokens y luego lo formateo para que quede con shape [1,768]
             sig_tokens_embeddings = torch.mean(sig_tokens_embeddings,dim=0).unsqueeze(0)
             # Si en vez de usar el promedio, tomo el primer token (es esta opcion o el promedio)
-            #sig_tokens_embeddings = sig_tokens_embeddings[0].unsqueeze(0)
+            '''sig_tokens_embeddings = sig_tokens_embeddings[0].unsqueeze(0)'''
             sig_embeddings_list.append(sig_tokens_embeddings) 
     elif model_type == "Llama2":
         for s in sig:
