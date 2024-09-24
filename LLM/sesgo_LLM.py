@@ -1,6 +1,6 @@
-from transformers import LlamaTokenizerFast,AutoModelForCausalLM,GPT2Tokenizer, AutoTokenizer
+from transformers import LlamaTokenizerFast,AutoModelForCausalLM,GPT2Tokenizer
 from tokenizers import Tokenizer
-#from custom_tokenizer import CustomTokenizer   
+from custom_tokenizer import CustomTokenizer   
 from tokenizers.models import WordLevel
 from tokenizers.pre_tokenizers import Whitespace, Punctuation, Sequence
 from tokenizers.processors import TemplateProcessing
@@ -48,7 +48,7 @@ def cargar_modelo(model_type, model_path=""):
     elif model_type == "GPT2_wordlevel":
         ruta = '/Users/NaranjaX/Desktop/tesis/modeloAgus/checkpoint-21940' #'/data/brunobian/Documents/Repos/Repos_Analisis/polisemia/LLM/model/checkpoint-21940'
         tokenizer_path = '/Users/NaranjaX/Desktop/tesis/modeloAgus/tokenizer' #'/data/brunobian/Documents/Repos/Repos_Analisis/polisemia/LLM/tokenizer'
-        tokenizer = AutoTokenizer.from_pretrained(tokenizer_path)
+        tokenizer = CustomTokenizer.from_pretrained(tokenizer_path)
         model = AutoModelForCausalLM.from_pretrained(ruta).to("mps")#.to('cuda')
         '''VERSION DE AGUS ARRIBA
         tokenizer_dict_path = '/data/brunobian/Documents/Repos/Repos_Analisis/polisemia/LLM/models/data/brunobian/Documents/Repos/Repos_Analisis/awdlstm-cloze-task/data/models/clm-spanish_word_stimulidb+reddit/tokenizer/token_dict.pkl'
@@ -69,7 +69,6 @@ def cargar_modelo(model_type, model_path=""):
     #TODO: Ver que nos gustaria devolver
     return model, tokenizer
 
-model, tokenizer = cargar_modelo(m) #TODO: Pensar mejor como devolver esto, si hace falta estar pasando las tres cosas o que
 layers = [0,1,2,3,4,5,6,7,8,9,10,11,12]
 m = "GPT2_wordlevel"#"GPT2"#"Llama2"#
 versionConExperimento = True
