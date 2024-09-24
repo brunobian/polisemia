@@ -1,6 +1,6 @@
 from transformers import LlamaTokenizerFast,AutoModelForCausalLM,GPT2Tokenizer
 from tokenizers import Tokenizer
-from custom_tokenizer import CustomTokenizer   
+from cambio_tokenizador.custom_tokenizer import CustomTokenizer   
 from tokenizers.models import WordLevel
 from tokenizers.pre_tokenizers import Whitespace, Punctuation, Sequence
 from tokenizers.processors import TemplateProcessing
