@@ -66,11 +66,6 @@ def remove_chars(row):
     return modified_text
 
 
-#def remove_chars(row):
-#    text = row['text']
-#    clean_text = text.lower().replace(","," <comma>").replace("."," <dot>")
-#    clean_text.replace("?","").replace("!","").replace("¡","").replace("¿","")
-#    return clean_text
 # TODO: use existing implementation of word-level tokenization, e.g.
 # tokenizers.models.WordLevel
 # See https://github.com/huggingface/tokenizers/issues/244 for help
@@ -87,7 +82,7 @@ parser.add_argument('--batch_size', type=int, default=4, help='predict & backpro
 args = parser.parse_args()
 
 #CHECKPOINT = 'openai-gpt'
-CHECKPOINT = "/data/brunobian/Documents/Repos/Repos_Analisis/polisemia/LLM"
+CHECKPOINT = "/data/brunobian/languageModels/clm-spanish"
 UNK = '<unk>'
 COMMA = '<comma>'
 DOT = '<dot>'
@@ -165,6 +160,7 @@ lm_datasets = dataset
 # load pretrained model
 #model = AutoModelForCausalLM.from_pretrained(CHECKPOINT, device_map="auto")
 #tokenizer = AutoTokenizer.from_pretrained(CHECKPOINT, use_fast=True)
+#TODO Implementar para Llama-2
 model = GPT2LMHeadModel.from_pretrained('DeepESP/gpt2-spanish')
 tokenizer = GPT2Tokenizer.from_pretrained('DeepESP/gpt2-spanish', use_fast= True)
 
