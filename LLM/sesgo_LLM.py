@@ -66,29 +66,36 @@ layers = [0,1,2,3,4,5,6,7,8,9,10,11,12]
 ### GPT 2 ###
 m = "GPT2"
 versionConExperimento = True
+
 versionShuffleada = False
 versionHola = False
+versionSoloUnaPalabraEnElModelo = False
 
 basepath = f'version{m}/'
 if(versionConExperimento):
     basepath = basepath + 'conExperimento(2daVersion)/'
     titulo_segun = "segun lista de palabras significado "
     df = getStimuliMergedWithFormattedExperimentResults('Stimuli.csv', f'{basepath}experiment_results_formatted.csv', basepath)
-else:
-    basepath = basepath + 'sinExperimento/'
-    titulo_segun = "segun una sola palabra significado "
-    if(versionShuffleada):
-        if(versionHola):
-            basepath = basepath + 'conMeaningHola/'
-            df = getStimuliMergedWithExperimentResults('Stimuli.csv', 'testVacio.experiment.json', basepath)
-            df = setMeaning(df, 'hola', basepath)
-        else:
-            basepath = basepath + 'conMeaningsAleatorios/'
-            df = getStimuliMergedWithExperimentResults('Stimuli.csv', 'testVacio.experiment.json', basepath)
-            df = shuffleMeanings(df, basepath)
+else: 
+    if(versionSoloUnaPalabraEnElModelo):
+        basepath = basepath + 'soloUnaPalabra/'
+        titulo_segun = "a partir de solo la palabra raya "
+        df = getStimuliMergedWithExperimentResults(f'{basepath}StimuliUnaPalabra.csv', 'testVacio.experiment.json', basepath)
     else:
-        basepath = basepath + 'conMeaningsDeStimuli/'
-        df = getStimuliMergedWithExperimentResults('Stimuli.csv', 'testVacio.experiment.json', basepath)
+        basepath = basepath + 'sinExperimento/'
+        titulo_segun = "segun una sola palabra significado "
+        if(versionShuffleada):
+            if(versionHola):
+                basepath = basepath + 'conMeaningHola/'
+                df = getStimuliMergedWithExperimentResults('Stimuli.csv', 'testVacio.experiment.json', basepath)
+                df = setMeaning(df, 'hola', basepath)
+            else:
+                basepath = basepath + 'conMeaningsAleatorios/'
+                df = getStimuliMergedWithExperimentResults('Stimuli.csv', 'testVacio.experiment.json', basepath)
+                df = shuffleMeanings(df, basepath)
+        else:
+            basepath = basepath + 'conMeaningsDeStimuli/'
+            df = getStimuliMergedWithExperimentResults('Stimuli.csv', 'testVacio.experiment.json', basepath)
 
 
 model, tokenizer = cargar_modelo(m) #TODO: Pensar mejor como devolver esto, si hace falta estar pasando las tres cosas o que
