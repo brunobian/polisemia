@@ -26,6 +26,13 @@ def getStimuliMergedWithFormattedExperimentResults(stimuli, results, basepath):
 
 def shuffleMeanings(df, basepath):
     df['significado'] = df['significado'].sample(frac=1).reset_index(drop=True)
+    # Agrupar por 'wordID' y 'meaningID' y tomar el primer 'significado'
+    significados_consistentes = df.groupby(['wordID', 'meaningID'])['significado'].first().reset_index()
+    # Combinar los significados consistentes de nuevo al DataFrame original
+    df = df.merge(significados_consistentes, on=['wordID', 'meaningID'], suffixes=('', '_nuevo'))
+    # Actualizar el DataFrame original con los significados consistentes
+    df['significado'] = df['significado_nuevo']
+    df.drop(columns=['significado_nuevo'], inplace=True)
     df.to_csv(f"{basepath}df_inicial_shuffled.csv")
     return df
 

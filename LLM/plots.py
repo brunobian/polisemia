@@ -22,6 +22,17 @@ def get_errores_para_todas_las_capas(lista_de_df, layers, basepath):
     df_combinado = getCombinedDFAndExport(df_con_errores, basepath)
     return df_combinado
 
+def get_errores_para_todas_las_capas1(lista_de_df, layers, basepath):
+    ## Para guardarme los errores en un csv
+    df_con_errores = []
+    for layer in layers:
+        df = calculo_error1(lista_de_df[layer])
+        ## Para guardarme los errores en un csv
+        df['layer'] = layer
+        df_con_errores.append(df)
+    df_combinado = getCombinedDFAndExport(df_con_errores, basepath)
+    return df_combinado
+
 def calculo_error(df_por_contexto):
     ## Calculo el promedio de las distancias ortogonales a la identidad contando a cada target con un contexto por separado
     ## Entonces debo sumar las distancias de un mismo target pero distintos contextos
@@ -32,7 +43,24 @@ def calculo_error(df_por_contexto):
     df_por_contexto['standardError'] = distancias_por_contexto.sem()
     return  df_por_contexto
 
+def calculo_error1(df_por_contexto):
+    ## Calculo el promedio de las distancias ortogonales a la identidad contando a cada target con un contexto por separado
+    ## Entonces debo sumar las distancias de un mismo target pero distintos contextos
+    ## La cantidad de distancias va a ser el doble de la cantidad de targets porque para cada uno hay dos contextos
+    distancias_por_contexto = df_por_contexto.apply(lambda x : calculo_distancia_entre_sesgoBase_sesgoGenerado1(x), axis = 1)
+    df_por_contexto['error'] = distancias_por_contexto
+    df_por_contexto['meanError'] = distancias_por_contexto.mean()
+    df_por_contexto['standardError'] = distancias_por_contexto.sem()
+    return  df_por_contexto
+
+
 def calculo_distancia_entre_sesgoBase_sesgoGenerado(row):
+    ## Obtengo la distancia ortogonal a la identidad
+    #TODO: sumar el valor absoluto del minimo
+    e = 1
+    return abs(row.sesgoGen - row.sesgoBase)
+
+def calculo_distancia_entre_sesgoBase_sesgoGenerado1(row):
     ## Obtengo la distancia ortogonal a la identidad
     #TODO: sumar el valor absoluto del minimo
     e = 1
@@ -105,6 +133,19 @@ def get_plots_for_each_target(df, basepath, titulo_segun):
         get_plot_with_scatterplot(df, basepath, titulo_segun, (10,15), f'el target {target}', f'target_{int(word_id)+1}', word_id)
 
 def getPlots(lista_de_df, layers, basepath, titulo_segun):
+    '''df = get_errores_para_todas_las_capas1(lista_de_df, layers, f'{basepath}noabs/')
+    ## Para graficar una linea con errores estandar
+    get_plot(df, f'{basepath}noabs/plots/', titulo_segun)
+    ## Para graficar con scatterplot
+    get_plot_with_scatterplot(df, f'{basepath}noabs/plots/', titulo_segun)
+    get_plots_for_each_target(df, f'{basepath}noabs/plots/', titulo_segun)
+
+    df = get_errores_para_todas_las_capas(lista_de_df, layers, f'{basepath}abs/')
+    ## Para graficar una linea con errores estandar
+    get_plot(df, f'{basepath}abs/plots/', titulo_segun)
+    ## Para graficar con scatterplot
+    get_plot_with_scatterplot(df, f'{basepath}abs/plots/', titulo_segun)
+    get_plots_for_each_target(df, f'{basepath}abs/plots/', titulo_segun)'''
     df = get_errores_para_todas_las_capas(lista_de_df, layers, basepath)
     ## Para graficar una linea con errores estandar
     get_plot(df, f'{basepath}plots/', titulo_segun)

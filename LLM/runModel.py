@@ -17,7 +17,7 @@ def get_embedding_before_model(model, model_type, target):
 
 ## Para el resto de las capas
 def get_query(context, oracion):
-    query = context + " " + oracion + "."
+    query = context + " " + oracion
     return query
 
 def tokenize(text, tokenizer, model_type):
