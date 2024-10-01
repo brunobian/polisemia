@@ -74,7 +74,7 @@ def reordeno_matriz(sesgos, df_original, basepath):
                  [N, 2, sesgoBase, sesgoGen]]]] 
         '''
         df=pd.DataFrame(df, columns=titulos)
-        df.to_csv(f"{basepath}sesgos_por_layer_{nlayer}.csv")
+        #df.to_csv(f"{basepath}sesgos_por_layer_{nlayer}.csv")
         pd_by_layer.append(df)
     return pd_by_layer
 
