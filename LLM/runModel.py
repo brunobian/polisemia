@@ -39,7 +39,7 @@ def find_target(text_ids, target, lista_sig, model_type, tokenizer):
         target_token  = tokenizer.encode(target, return_tensors="pt").to("mps")#.to('cuda')
     elif model_type == "GPT2_wordlevel":
         targ_tokenizado = tokenizer.encode(target) # GPT
-        target_token  = torch.tensor([tokenizer.encode(target).ids]).to("mps")#.to('cuda')
+        target_token  = tokenizer.encode(target, return_tensors="pt").to("mps")#.to('cuda')
         '''REVISAR SI ESTO ULTIMO HACE FALTA'''
             
     ## Obtengo los significados de la lista tokenizados en formato tensor
@@ -69,6 +69,8 @@ def find_target(text_ids, target, lista_sig, model_type, tokenizer):
             sig_ids_list= sig_ids.tolist()  # si la palabra del significado tiene mas de un token, me quedo con el primero
             LO DE ABAJO ES LO DE AGUS, chequear si hace flta hacer squeeze'''
             sig_ids  = tokenizer.encode(sig, return_tensors='pt').to("mps")#.to('cuda')
+            assert(sig_ids.size()[0] == 1)
+            sig_ids  = sig_ids[0]
             #sig_ids_list= sig_ids.tolist()  # si la palabra del significado tiene mas de un token, me quedo con el primero
         list_sig_ids.append(sig_ids)        
         
@@ -123,7 +125,7 @@ def get_sig_embedding(model, model_type, sig, pesoDeSignificados):
             # Obtengo un tensor con los embeddings de cada token que conforma la palabra significado
             sig_tokens_embeddings = model.transformer.wte(s)
             # Tomo el promedio de los embeddings de los tokens y luego lo formateo para que quede con shape [1,768]
-            sig_tokens_embeddings = torch.mean(sig_tokens_embeddings,dim=0).unsqueeze(0)
+            ####sig_tokens_embeddings = torch.mean(sig_tokens_embeddings,dim=0).unsqueeze(0)
             # Si en vez de usar el promedio, tomo el primer token (es esta opcion o el promedio)
             #sig_tokens_embeddings = sig_tokens_embeddings[0].unsqueeze(0)
             sig_embeddings_list.append(sig_tokens_embeddings) 

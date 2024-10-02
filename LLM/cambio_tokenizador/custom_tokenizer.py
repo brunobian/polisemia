@@ -61,7 +61,7 @@ class CustomTokenizer(PreTrainedTokenizer):
 
         return (vocab_file,)
 
-    def tokenize(self, text):
+    def tokenize(self, text, **kwargs):
         #TODO ver si se puede usar tokenización de Spacy
         text = self.pretokenize(text)
         return text.split()
