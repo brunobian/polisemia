@@ -73,45 +73,55 @@ layers = [0,1,2,3,4,5,6,7,8,9,10,11,12]
 
 ### GPT 2 ###
 m = "GPT2"
-version = "ConExperimento3" 
+version = "ConExperimento4" 
 #"ConExperimento2" 
 #"ConExperimento3" 
+#"ConExperimento4" 
 #"Shuffleada"
 #"Hola"
 #"SoloStimuli"
 #"SoloUnaPalabraEnElModelo"
+tipoMetrica = "absDeCadaSesgo"
+#"valorAbsoluto"
+#"sinValorAbsoluto"
+#"absDeCadaSesgo"
 
 if(version == "ConExperimento2"):
-    basepath = f'version{m}/conExperimento(2daVersion)/'
+    basepath = f'version{m}({tipoMetrica})/conExperimento(2daVersion)/'
     titulo_segun = "segun lista de palabras significado "
     df = getStimuliMergedWithFormattedExperimentResults('Stimuli.csv', f'{basepath}experiment_results_formatted.csv', basepath)
 else: 
     if(version == "ConExperimento3"):
-        basepath = f'version{m}/conExperimento(3erVersion)/'
+        basepath = f'version{m}({tipoMetrica})/conExperimento(3erVersion)/'
         titulo_segun = "segun lista de palabras significado "
         df = getStimuliMergedWithExperimentResults('Stimuli.csv', f'{basepath}test.experimentmodels-final.json', basepath)
     else: 
-        if(version == "Shuffleada"):
-            basepath = f'version{m}/sinExperimento/conMeaningsAleatorios/'
-            titulo_segun = "segun un significado shuffleado "
-            df = getStimuliMergedWithExperimentResults('Stimuli.csv', 'testVacio.experiment.json', basepath)
-            df = shuffleMeanings(df, basepath)
+        if(version == "ConExperimento4"):
+            basepath = f'version{m}({tipoMetrica})/conExperimento(4taVersion)/'
+            titulo_segun = "segun lista de palabras significado "
+            df = getStimuliMergedWithFormattedExperimentResults('Stimuli.csv', f'{basepath}10-5-experiment_results_formatted.csv', basepath)
         else: 
-            if(version == "Hola"):
-                basepath = f'version{m}/sinExperimento/conMeaningHola/'
-                titulo_segun = "segun el significado 'hola' "
+            if(version == "Shuffleada"):
+                basepath = f'version{m}({tipoMetrica})/sinExperimento/conMeaningsAleatorios/'
+                titulo_segun = "segun un significado shuffleado "
                 df = getStimuliMergedWithExperimentResults('Stimuli.csv', 'testVacio.experiment.json', basepath)
-                df = setMeaning(df, 'hola', basepath)
+                df = shuffleMeanings(df, basepath)
             else: 
-                if(version == "SoloStimuli"):
-                    basepath = f'version{m}/sinExperimento/conMeaningsDeStimuli/'
-                    titulo_segun = "segun una sola palabra significado "
+                if(version == "Hola"):
+                    basepath = f'version{m}({tipoMetrica})/sinExperimento/conMeaningHola/'
+                    titulo_segun = "segun el significado 'hola' "
                     df = getStimuliMergedWithExperimentResults('Stimuli.csv', 'testVacio.experiment.json', basepath)
+                    df = setMeaning(df, 'hola', basepath)
                 else: 
-                    if(version == "SoloUnaPalabraEnElModelo"):
-                        basepath = f'version{m}/soloUnaPalabra/'
-                        titulo_segun = "a partir de solo la palabra raya "
-                        df = getStimuliMergedWithExperimentResults(f'{basepath}StimuliUnaPalabra.csv', 'testVacio.experiment.json', basepath)
+                    if(version == "SoloStimuli"):
+                        basepath = f'version{m}({tipoMetrica})/sinExperimento/conMeaningsDeStimuli/'
+                        titulo_segun = "segun una sola palabra significado "
+                        df = getStimuliMergedWithExperimentResults('Stimuli.csv', 'testVacio.experiment.json', basepath)
+                    else: 
+                        if(version == "SoloUnaPalabraEnElModelo"):
+                            basepath = f'version{m}({tipoMetrica})/soloUnaPalabra/'
+                            titulo_segun = "a partir de solo la palabra raya "
+                            df = getStimuliMergedWithExperimentResults(f'{basepath}StimuliUnaPalabra.csv', 'testVacio.experiment.json', basepath)
 
 
 model, tokenizer = cargar_modelo(m) #TODO: Pensar mejor como devolver esto, si hace falta estar pasando las tres cosas o que
@@ -122,7 +132,7 @@ model, tokenizer = cargar_modelo(m) #TODO: Pensar mejor como devolver esto, si h
 
 #VERSION CON EXPERIMENTOS (una fila por combinacion target-significado-contexto)
 lista_de_df = getBias_forPreparedDf(df, layers, m, model, tokenizer, basepath)
-getPlots(lista_de_df, layers, basepath, titulo_segun)
+getPlots(lista_de_df, layers, basepath, titulo_segun, m, tipoMetrica)
 
 '''
 OK Cambiar el nombre del eje y "Error promedio"
