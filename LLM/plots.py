@@ -1,50 +1,8 @@
 import matplotlib.pyplot as plt
 import pandas as pd
+from getErrors import get_errores_para_todas_las_capas
 
 ## Para las metricas
-
-def getCombinedDFAndExport(lista_df, basepath):
-    # Combinar todos los DataFrames y exportar  
-    combined_df = pd.concat(lista_df, ignore_index=True)
-    reorder_columns_df = combined_df[['layer','wordID','meaningID','target','sesgoBase','sesgoGen','error','meanError','standardError']] 
-    reorder_rows_df = reorder_columns_df.sort_values(by=['wordID', 'meaningID', 'layer'], ascending=[True, True, True])
-    reorder_rows_df.to_csv(f'{basepath}errorByLayer.csv', index=False)
-    return reorder_rows_df
-
-def get_errores_para_todas_las_capas(lista_de_df, layers, basepath, tipoMetrica):
-    ## Para guardarme los errores en un csv
-    df_con_errores = []
-    for layer in layers:
-        df = calculo_error(lista_de_df[layer], tipoMetrica)
-        ## Para guardarme los errores en un csv
-        df['layer'] = layer
-        df_con_errores.append(df)
-    df_combinado = getCombinedDFAndExport(df_con_errores, basepath)
-    return df_combinado
-
-def calculo_error(df_por_contexto, tipoMetrica):
-    ## Calculo el promedio de las distancias ortogonales a la identidad contando a cada target con un contexto por separado
-    ## Entonces debo sumar las distancias de un mismo target pero distintos contextos
-    ## La cantidad de distancias va a ser el doble de la cantidad de targets porque para cada uno hay dos contextos
-    distancias_por_contexto = df_por_contexto.apply(lambda x : calculo_distancia_entre_sesgoBase_sesgoGenerado(x, tipoMetrica), axis = 1)
-    df_por_contexto['error'] = distancias_por_contexto
-    df_por_contexto['meanError'] = distancias_por_contexto.mean()
-    df_por_contexto['standardError'] = distancias_por_contexto.sem()
-    return  df_por_contexto
-
-def calculo_distancia_entre_sesgoBase_sesgoGenerado(row, tipoMetrica):
-    ## Obtengo la distancia ortogonal a la identidad
-    #TODO: sumar el valor absoluto del minimo
-    e = 1
-    sesgoGen = row.sesgoGen
-    sesgoBase = row.sesgoBase
-    if(tipoMetrica == "absDeCadaSesgo"):
-        sesgoGen = abs(sesgoGen)
-        sesgoBase = abs(sesgoBase)
-    difSesgos = sesgoGen - sesgoBase
-    if(tipoMetrica == "valorAbsoluto"):
-        difSesgos = abs(difSesgos)
-    return difSesgos
 
 def getLayersMeanAndStandardError(df):
     generalError = df[(df['wordID'] == (df['wordID'].iloc[0])) & (df['meaningID'] == (df['meaningID'].iloc[0]))]
@@ -111,14 +69,6 @@ def get_plots_for_each_target(df, basepath, titulo_segun, model):
         target = subset_word['target'].unique()
         get_plot_with_scatterplot(df, basepath, titulo_segun, model, (10,15), f'el target {target}', f'target_{int(word_id)+1}', word_id)
 
-def getPlots(lista_de_df, layers, basepath, titulo_segun, m, tipoMetrica):
-    df = get_errores_para_todas_las_capas(lista_de_df, layers, basepath, tipoMetrica)
-    ## Para graficar una linea con errores estandar
-    get_plot(df, f'{basepath}plots/', titulo_segun, m)
-    ## Para graficar con scatterplot
-    get_plot_with_scatterplot(df, f'{basepath}plots/', titulo_segun, m)
-    get_plots_for_each_target(df, f'{basepath}plots/', titulo_segun, m)
-
 def openCsvAsDf(listCsv):
     listDf = []
     for csv in listCsv:
@@ -142,95 +92,11 @@ def get_plot_with_more_than_one_csv(listCsv, basepath, titulo_segun, labels, lab
     plt.savefig(f'{basepath}plot-layers.png')
     plt.savefig(f'{basepath}plot-layers.svg')
     plt.close()
-''''''
-labelsinValorAbs = "Difference between generated bias and baseline bias"
-labelvalorAbs = "Absolute value of generated bias - baseline bias"
-labelvalorAbsSesgo = "Absolute value of generated bias - absolute value of baseline bias"
 
-sinValorAbs = "sinValorAbsoluto"
-valorAbs = "valorAbsoluto"
-valorAbsSesgo = "absDeCadaSesgo"
-
-soloUnaPalabra = "soloUnaPalabra"
-shuffleado = "sinExperimento/conMeaningsAleatorios"
-unMeaning = "sinExperimento/conMeaningsDeStimuli"
-listaMeaning = "conExperimento(4taVersion)"
-
-labels = ["GPT 2","GPT 2 WordLevel"]
-labelUnaOLista = ["GPT 2 using one word","GPT 2 WordLevel using one word","GPT 2 con una lista de palabra","GPT 2 WordLevel con una lista de palabra"]
-
-titulo_segun = "according just one word "
-meaning = soloUnaPalabra
-listaCsv = [f"versionGPT2({sinValorAbs})/{meaning}/errorByLayer.csv", f"versionGPT2_wordlevel({sinValorAbs})/{meaning}/errorByLayer.csv"]
-basepath = f"comparativaSesgos/gpt2yGpt2Wordlevel/{sinValorAbs}/{meaning}/"
-get_plot_with_more_than_one_csv(listaCsv, basepath, titulo_segun, labels, labelsinValorAbs)
-
-listaCsv = [f"versionGPT2({valorAbs})/{meaning}/errorByLayer.csv", f"versionGPT2_wordlevel({valorAbs})/{meaning}/errorByLayer.csv"]
-basepath = f"comparativaSesgos/gpt2yGpt2Wordlevel/{valorAbs}/{meaning}/"
-get_plot_with_more_than_one_csv(listaCsv, basepath, titulo_segun, labels,labelvalorAbs)
-
-listaCsv = [f"versionGPT2({valorAbsSesgo})/{meaning}/errorByLayer.csv", f"versionGPT2_wordlevel({valorAbsSesgo})/{meaning}/errorByLayer.csv"]
-basepath = f"comparativaSesgos/gpt2yGpt2Wordlevel/{valorAbsSesgo}/{meaning}/"
-get_plot_with_more_than_one_csv(listaCsv, basepath, titulo_segun, labels,labelvalorAbsSesgo)
-
-
-titulo_segun = "using one word as meaning "
-meaning = unMeaning
-listaCsv = [f"versionGPT2({sinValorAbs})/{meaning}/errorByLayer.csv", f"versionGPT2_wordlevel({sinValorAbs})/{meaning}/errorByLayer.csv"]
-basepath = f"comparativaSesgos/gpt2yGpt2Wordlevel/{sinValorAbs}/{meaning}/"
-get_plot_with_more_than_one_csv(listaCsv, basepath, titulo_segun, labels, labelsinValorAbs)
-
-listaCsv = [f"versionGPT2({valorAbs})/{meaning}/errorByLayer.csv", f"versionGPT2_wordlevel({valorAbs})/{meaning}/errorByLayer.csv"]
-basepath = f"comparativaSesgos/gpt2yGpt2Wordlevel/{valorAbs}/{meaning}/"
-get_plot_with_more_than_one_csv(listaCsv, basepath, titulo_segun, labels,labelvalorAbs)
-
-listaCsv = [f"versionGPT2({valorAbsSesgo})/{meaning}/errorByLayer.csv", f"versionGPT2_wordlevel({valorAbsSesgo})/{meaning}/errorByLayer.csv"]
-basepath = f"comparativaSesgos/gpt2yGpt2Wordlevel/{valorAbsSesgo}/{meaning}/"
-get_plot_with_more_than_one_csv(listaCsv, basepath, titulo_segun, labels,labelvalorAbsSesgo)
-
-
-titulo_segun = "using shuffled meanings "
-meaning = shuffleado
-listaCsv = [f"versionGPT2({sinValorAbs})/{meaning}/errorByLayer.csv", f"versionGPT2_wordlevel({sinValorAbs})/{meaning}/errorByLayer.csv"]
-basepath = f"comparativaSesgos/gpt2yGpt2Wordlevel/{sinValorAbs}/{meaning}/"
-get_plot_with_more_than_one_csv(listaCsv, basepath, titulo_segun, labels,labelsinValorAbs)
-
-listaCsv = [f"versionGPT2({valorAbs})/{meaning}/errorByLayer.csv", f"versionGPT2_wordlevel({valorAbs})/{meaning}/errorByLayer.csv"]
-basepath = f"comparativaSesgos/gpt2yGpt2Wordlevel/{valorAbs}/{meaning}/"
-get_plot_with_more_than_one_csv(listaCsv, basepath, titulo_segun, labels,labelvalorAbs)
-
-listaCsv = [f"versionGPT2({valorAbsSesgo})/{meaning}/errorByLayer.csv", f"versionGPT2_wordlevel({valorAbsSesgo})/{meaning}/errorByLayer.csv"]
-basepath = f"comparativaSesgos/gpt2yGpt2Wordlevel/{valorAbsSesgo}/{meaning}/"
-get_plot_with_more_than_one_csv(listaCsv, basepath, titulo_segun, labels,labelvalorAbsSesgo)
-
-
-titulo_segun = "using list of words as meanings "
-meaning = listaMeaning
-listaCsv = [f"versionGPT2({sinValorAbs})/{meaning}/errorByLayer.csv", f"versionGPT2_wordlevel({sinValorAbs})/{meaning}/errorByLayer.csv"]
-basepath = f"comparativaSesgos/gpt2yGpt2Wordlevel/{sinValorAbs}/{meaning}/"
-get_plot_with_more_than_one_csv(listaCsv, basepath, titulo_segun, labels,labelsinValorAbs)
-
-listaCsv = [f"versionGPT2({valorAbs})/{meaning}/errorByLayer.csv", f"versionGPT2_wordlevel({valorAbs})/{meaning}/errorByLayer.csv"]
-basepath = f"comparativaSesgos/gpt2yGpt2Wordlevel/{valorAbs}/{meaning}/"
-get_plot_with_more_than_one_csv(listaCsv, basepath, titulo_segun, labels,labelvalorAbs)
-
-listaCsv = [f"versionGPT2({valorAbsSesgo})/{meaning}/errorByLayer.csv", f"versionGPT2_wordlevel({valorAbsSesgo})/{meaning}/errorByLayer.csv"]
-basepath = f"comparativaSesgos/gpt2yGpt2Wordlevel/{valorAbsSesgo}/{meaning}/"
-get_plot_with_more_than_one_csv(listaCsv, basepath, titulo_segun, labels,labelvalorAbsSesgo)
-
-
-titulo_segun = "using one word or a list of meanings "
-meaning1 = listaMeaning
-meaning2 = unMeaning
-meaning = "unoVsLista"
-listaCsv = [f"versionGPT2({sinValorAbs})/{meaning2}/errorByLayer.csv", f"versionGPT2_wordlevel({sinValorAbs})/{meaning2}/errorByLayer.csv", f"versionGPT2({sinValorAbs})/{meaning1}/errorByLayer.csv", f"versionGPT2_wordlevel({sinValorAbs})/{meaning1}/errorByLayer.csv"]
-basepath = f"comparativaSesgos/gpt2yGpt2Wordlevel/{sinValorAbs}/{meaning}/"
-get_plot_with_more_than_one_csv(listaCsv, basepath, titulo_segun, labelUnaOLista,labelsinValorAbs)
-
-listaCsv = [f"versionGPT2({valorAbs})/{meaning2}/errorByLayer.csv", f"versionGPT2_wordlevel({valorAbs})/{meaning2}/errorByLayer.csv", f"versionGPT2({valorAbs})/{meaning1}/errorByLayer.csv", f"versionGPT2_wordlevel({valorAbs})/{meaning1}/errorByLayer.csv"]
-basepath = f"comparativaSesgos/gpt2yGpt2Wordlevel/{valorAbs}/{meaning}/"
-get_plot_with_more_than_one_csv(listaCsv, basepath, titulo_segun, labelUnaOLista,labelvalorAbs)
-
-listaCsv = [f"versionGPT2({valorAbsSesgo})/{meaning2}/errorByLayer.csv", f"versionGPT2_wordlevel({valorAbsSesgo})/{meaning2}/errorByLayer.csv", f"versionGPT2({valorAbsSesgo})/{meaning1}/errorByLayer.csv", f"versionGPT2_wordlevel({valorAbsSesgo})/{meaning1}/errorByLayer.csv"]
-basepath = f"comparativaSesgos/gpt2yGpt2Wordlevel/{valorAbsSesgo}/{meaning}/"
-get_plot_with_more_than_one_csv(listaCsv, basepath, titulo_segun, labelUnaOLista,labelvalorAbsSesgo)
+def getPlots(lista_de_df, layers, basepath, titulo_segun, m, tipoMetrica):
+    df = get_errores_para_todas_las_capas(lista_de_df, layers, basepath, tipoMetrica)
+    ## Para graficar una linea con errores estandar
+    get_plot(df, f'{basepath}plots/', titulo_segun, m)
+    ## Para graficar con scatterplot
+    get_plot_with_scatterplot(df, f'{basepath}plots/', titulo_segun, m)
+    get_plots_for_each_target(df, f'{basepath}plots/', titulo_segun, m)
