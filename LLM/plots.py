@@ -125,24 +125,28 @@ def openCsvAsDf(listCsv):
         listDf.append(pd.read_csv(csv,quotechar='"'))
     return listDf
 
-def get_plot_with_more_than_one_csv(listCsv, basepath, titulo_segun, labels):
+def get_plot_with_more_than_one_csv(listCsv, basepath, titulo_segun, labels, labelY):
     listDf = openCsvAsDf(listCsv)    
     colors_extended = getColors(len(listCsv))
-    plt.figure(figsize=(10,15))
+    #plt.figure(figsize=(10,15))
     for i,df in enumerate(listDf):
         layers, meanErrors, standardErrors = getLayersMeanAndStandardError(df)
         plt.errorbar(layers, meanErrors, yerr=(standardErrors), 
                     label=labels[i],
                     color=colors_extended[i])
-    plt.title(f"Comparativa de sesgos {titulo_segun}en cada capa de los modelos")
-    plt.xlabel("Capas")
-    plt.ylabel("Diferencia entre sesgo generado y sesgo base")
+    plt.title(f"Comparison of biases {titulo_segun}\n in each layer of the models")
+    plt.xlabel("Layers")
+    plt.ylabel(labelY)
     plt.legend(loc='best')
     #plt.ylim(-0.02, 0.035)
     plt.savefig(f'{basepath}plot-layers.png')
     plt.savefig(f'{basepath}plot-layers.svg')
     plt.close()
 ''''''
+labelsinValorAbs = "Difference between generated bias and baseline bias"
+labelvalorAbs = "Absolute value of generated bias - baseline bias"
+labelvalorAbsSesgo = "Absolute value of generated bias - absolute value of baseline bias"
+
 sinValorAbs = "sinValorAbsoluto"
 valorAbs = "valorAbsoluto"
 valorAbsSesgo = "absDeCadaSesgo"
@@ -152,65 +156,81 @@ shuffleado = "sinExperimento/conMeaningsAleatorios"
 unMeaning = "sinExperimento/conMeaningsDeStimuli"
 listaMeaning = "conExperimento(4taVersion)"
 
-labelSinValorAbsoluto = ["GPT 2 sin valor absoluto","GPT 2 WordLevel sin valor absoluto"]
-labelConValorAbsoluto = ["GPT 2 con valor absoluto a diferencia","GPT 2 WordLevel con valor absoluto a diferencia"]
-labelConAbsolutoASesgos = ["GPT 2 con valor absoluto a sesgos","GPT 2 WordLevel con valor absoluto a sesgos"]
+labels = ["GPT 2","GPT 2 WordLevel"]
+labelUnaOLista = ["GPT 2 using one word","GPT 2 WordLevel using one word","GPT 2 con una lista de palabra","GPT 2 WordLevel con una lista de palabra"]
 
-titulo_segun = "segun solo una palabra "
+titulo_segun = "according just one word "
 meaning = soloUnaPalabra
 listaCsv = [f"versionGPT2({sinValorAbs})/{meaning}/errorByLayer.csv", f"versionGPT2_wordlevel({sinValorAbs})/{meaning}/errorByLayer.csv"]
 basepath = f"comparativaSesgos/gpt2yGpt2Wordlevel/{sinValorAbs}/{meaning}/"
-get_plot_with_more_than_one_csv(listaCsv, basepath, titulo_segun, labelSinValorAbsoluto)
+get_plot_with_more_than_one_csv(listaCsv, basepath, titulo_segun, labels, labelsinValorAbs)
 
 listaCsv = [f"versionGPT2({valorAbs})/{meaning}/errorByLayer.csv", f"versionGPT2_wordlevel({valorAbs})/{meaning}/errorByLayer.csv"]
 basepath = f"comparativaSesgos/gpt2yGpt2Wordlevel/{valorAbs}/{meaning}/"
-get_plot_with_more_than_one_csv(listaCsv, basepath, titulo_segun, labelConValorAbsoluto)
+get_plot_with_more_than_one_csv(listaCsv, basepath, titulo_segun, labels,labelvalorAbs)
 
 listaCsv = [f"versionGPT2({valorAbsSesgo})/{meaning}/errorByLayer.csv", f"versionGPT2_wordlevel({valorAbsSesgo})/{meaning}/errorByLayer.csv"]
 basepath = f"comparativaSesgos/gpt2yGpt2Wordlevel/{valorAbsSesgo}/{meaning}/"
-get_plot_with_more_than_one_csv(listaCsv, basepath, titulo_segun, labelConAbsolutoASesgos)
+get_plot_with_more_than_one_csv(listaCsv, basepath, titulo_segun, labels,labelvalorAbsSesgo)
 
 
-titulo_segun = "segun solo una palabra como significado "
+titulo_segun = "using one word as meaning "
 meaning = unMeaning
 listaCsv = [f"versionGPT2({sinValorAbs})/{meaning}/errorByLayer.csv", f"versionGPT2_wordlevel({sinValorAbs})/{meaning}/errorByLayer.csv"]
 basepath = f"comparativaSesgos/gpt2yGpt2Wordlevel/{sinValorAbs}/{meaning}/"
-get_plot_with_more_than_one_csv(listaCsv, basepath, titulo_segun, labelSinValorAbsoluto)
+get_plot_with_more_than_one_csv(listaCsv, basepath, titulo_segun, labels, labelsinValorAbs)
 
 listaCsv = [f"versionGPT2({valorAbs})/{meaning}/errorByLayer.csv", f"versionGPT2_wordlevel({valorAbs})/{meaning}/errorByLayer.csv"]
 basepath = f"comparativaSesgos/gpt2yGpt2Wordlevel/{valorAbs}/{meaning}/"
-get_plot_with_more_than_one_csv(listaCsv, basepath, titulo_segun, labelConValorAbsoluto)
+get_plot_with_more_than_one_csv(listaCsv, basepath, titulo_segun, labels,labelvalorAbs)
 
 listaCsv = [f"versionGPT2({valorAbsSesgo})/{meaning}/errorByLayer.csv", f"versionGPT2_wordlevel({valorAbsSesgo})/{meaning}/errorByLayer.csv"]
 basepath = f"comparativaSesgos/gpt2yGpt2Wordlevel/{valorAbsSesgo}/{meaning}/"
-get_plot_with_more_than_one_csv(listaCsv, basepath, titulo_segun, labelConAbsolutoASesgos)
+get_plot_with_more_than_one_csv(listaCsv, basepath, titulo_segun, labels,labelvalorAbsSesgo)
 
 
-titulo_segun = "segun significados aleatorios "
+titulo_segun = "using shuffled meanings "
 meaning = shuffleado
 listaCsv = [f"versionGPT2({sinValorAbs})/{meaning}/errorByLayer.csv", f"versionGPT2_wordlevel({sinValorAbs})/{meaning}/errorByLayer.csv"]
 basepath = f"comparativaSesgos/gpt2yGpt2Wordlevel/{sinValorAbs}/{meaning}/"
-get_plot_with_more_than_one_csv(listaCsv, basepath, titulo_segun, labelSinValorAbsoluto)
+get_plot_with_more_than_one_csv(listaCsv, basepath, titulo_segun, labels,labelsinValorAbs)
 
 listaCsv = [f"versionGPT2({valorAbs})/{meaning}/errorByLayer.csv", f"versionGPT2_wordlevel({valorAbs})/{meaning}/errorByLayer.csv"]
 basepath = f"comparativaSesgos/gpt2yGpt2Wordlevel/{valorAbs}/{meaning}/"
-get_plot_with_more_than_one_csv(listaCsv, basepath, titulo_segun, labelConValorAbsoluto)
+get_plot_with_more_than_one_csv(listaCsv, basepath, titulo_segun, labels,labelvalorAbs)
 
 listaCsv = [f"versionGPT2({valorAbsSesgo})/{meaning}/errorByLayer.csv", f"versionGPT2_wordlevel({valorAbsSesgo})/{meaning}/errorByLayer.csv"]
 basepath = f"comparativaSesgos/gpt2yGpt2Wordlevel/{valorAbsSesgo}/{meaning}/"
-get_plot_with_more_than_one_csv(listaCsv, basepath, titulo_segun, labelConAbsolutoASesgos)
+get_plot_with_more_than_one_csv(listaCsv, basepath, titulo_segun, labels,labelvalorAbsSesgo)
 
 
-titulo_segun = "segun significados aleatorios "
+titulo_segun = "using list of words as meanings "
 meaning = listaMeaning
 listaCsv = [f"versionGPT2({sinValorAbs})/{meaning}/errorByLayer.csv", f"versionGPT2_wordlevel({sinValorAbs})/{meaning}/errorByLayer.csv"]
 basepath = f"comparativaSesgos/gpt2yGpt2Wordlevel/{sinValorAbs}/{meaning}/"
-get_plot_with_more_than_one_csv(listaCsv, basepath, titulo_segun, labelSinValorAbsoluto)
+get_plot_with_more_than_one_csv(listaCsv, basepath, titulo_segun, labels,labelsinValorAbs)
 
 listaCsv = [f"versionGPT2({valorAbs})/{meaning}/errorByLayer.csv", f"versionGPT2_wordlevel({valorAbs})/{meaning}/errorByLayer.csv"]
 basepath = f"comparativaSesgos/gpt2yGpt2Wordlevel/{valorAbs}/{meaning}/"
-get_plot_with_more_than_one_csv(listaCsv, basepath, titulo_segun, labelConValorAbsoluto)
+get_plot_with_more_than_one_csv(listaCsv, basepath, titulo_segun, labels,labelvalorAbs)
 
 listaCsv = [f"versionGPT2({valorAbsSesgo})/{meaning}/errorByLayer.csv", f"versionGPT2_wordlevel({valorAbsSesgo})/{meaning}/errorByLayer.csv"]
 basepath = f"comparativaSesgos/gpt2yGpt2Wordlevel/{valorAbsSesgo}/{meaning}/"
-get_plot_with_more_than_one_csv(listaCsv, basepath, titulo_segun, labelConAbsolutoASesgos)
+get_plot_with_more_than_one_csv(listaCsv, basepath, titulo_segun, labels,labelvalorAbsSesgo)
+
+
+titulo_segun = "using one word or a list of meanings "
+meaning1 = listaMeaning
+meaning2 = unMeaning
+meaning = "unoVsLista"
+listaCsv = [f"versionGPT2({sinValorAbs})/{meaning2}/errorByLayer.csv", f"versionGPT2_wordlevel({sinValorAbs})/{meaning2}/errorByLayer.csv", f"versionGPT2({sinValorAbs})/{meaning1}/errorByLayer.csv", f"versionGPT2_wordlevel({sinValorAbs})/{meaning1}/errorByLayer.csv"]
+basepath = f"comparativaSesgos/gpt2yGpt2Wordlevel/{sinValorAbs}/{meaning}/"
+get_plot_with_more_than_one_csv(listaCsv, basepath, titulo_segun, labelUnaOLista,labelsinValorAbs)
+
+listaCsv = [f"versionGPT2({valorAbs})/{meaning2}/errorByLayer.csv", f"versionGPT2_wordlevel({valorAbs})/{meaning2}/errorByLayer.csv", f"versionGPT2({valorAbs})/{meaning1}/errorByLayer.csv", f"versionGPT2_wordlevel({valorAbs})/{meaning1}/errorByLayer.csv"]
+basepath = f"comparativaSesgos/gpt2yGpt2Wordlevel/{valorAbs}/{meaning}/"
+get_plot_with_more_than_one_csv(listaCsv, basepath, titulo_segun, labelUnaOLista,labelvalorAbs)
+
+listaCsv = [f"versionGPT2({valorAbsSesgo})/{meaning2}/errorByLayer.csv", f"versionGPT2_wordlevel({valorAbsSesgo})/{meaning2}/errorByLayer.csv", f"versionGPT2({valorAbsSesgo})/{meaning1}/errorByLayer.csv", f"versionGPT2_wordlevel({valorAbsSesgo})/{meaning1}/errorByLayer.csv"]
+basepath = f"comparativaSesgos/gpt2yGpt2Wordlevel/{valorAbsSesgo}/{meaning}/"
+get_plot_with_more_than_one_csv(listaCsv, basepath, titulo_segun, labelUnaOLista,labelvalorAbsSesgo)
