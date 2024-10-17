@@ -2,6 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy import stats
+import numpy as np
 
 # Set working directory (uncomment and modify as needed)
 # os.chdir("~/Desktop/Tesis/polisemia/LLM/")
@@ -22,7 +23,7 @@ df = pd.read_csv(f"versionGPT2(sinValorAbsoluto)/{meaningType}/errorByLayer.csv"
 df_w = pd.read_csv(f"versionGPT2_wordlevel(sinValorAbsoluto)/{meaningType}/errorByLayer.csv")
 
 # Add model identifier
-df['Model'] = 'GPT2 base'
+df['Model'] = 'GPT2'
 df_w['Model'] = 'GPT2 WordLevel'
 
 # Combine both dataframes
@@ -41,23 +42,38 @@ plt.rcParams['axes.labelsize'] = 22  # Axis label font size
 
 # Function to create and save plots for each layer
 def create_plots_by_layer(data, plot_type):
+    # Filter out layer 0
+    data = data[data['layer'] != 0]
+    if plot_type == 'scatter':
+        x_min = data['baseS'].min()
+        x_max = data['baseS'].max()
+        y_min = data['SignS'].min()
+        y_max = data['SignS'].max()
+        # Use the most extreme value for both axes to make them equal
+        global_min = min(x_min, y_min)
+        global_max = max(x_max, y_max)
+    elif plot_type == 'boxplot':
+        y_min = -2 #data['diff_base_emb'].min()
+        y_max = 2.5 #data['diff_base_emb'].max()
+    
     for layer in data['layer'].unique():
         layer_data = data[data['layer'] == layer]
         
-        plt.figure(figsize=(20, 30))
+        plt.figure(figsize=(10, 15))
         
         if plot_type == 'scatter':
             for model in layer_data['Model'].unique():
                 model_data = layer_data[layer_data['Model'] == model]
                 plt.scatter(model_data['baseS'], model_data['SignS'], label=model)
-            
-            plt.plot([layer_data['baseS'].min(), layer_data['baseS'].max()], 
-                     [layer_data['baseS'].min(), layer_data['baseS'].max()], 'k--')
+            plt.plot([global_min, global_max], [global_min, global_max], 'k--')
+            plt.xlim(global_min, global_max)
+            plt.ylim(global_min, global_max)
             plt.xlabel("Base Bias")
             plt.ylabel("Generated Bias")
         
         elif plot_type == 'boxplot':
             sns.boxplot(x='Model', y='diff_base_emb', data=layer_data)
+            plt.ylim(y_min, y_max)
             plt.ylabel("Difference between base and generated bias")
         
         plt.title(f"Layer {layer}")
@@ -81,32 +97,53 @@ df_humanos = pd.read_csv("../comportamental/accuracies.csv", sep=",")
 df_humanos = df_humanos[['indTarget', 'diff_base1', 'diff_base2']]
 df_humanos[['diff_base1', 'diff_base2']] = df_humanos[['diff_base1', 'diff_base2']].astype(float)
 
-# Merge dataframes
-df = pd.merge(df, df_humanos, left_on="wordID", right_on="indTarget")
+# Crear dos dataframes separados para cada meaningID
+df_humanos_1 = df_humanos[['indTarget', 'diff_base1']].rename(columns={'indTarget': 'wordID', 'diff_base1': 'diff_base_human'})
+df_humanos_1['meaningID'] = 1
+
+df_humanos_2 = df_humanos[['indTarget', 'diff_base2']].rename(columns={'indTarget': 'wordID', 'diff_base2': 'diff_base_human'})
+df_humanos_2['meaningID'] = 2
+
+# Combinar los dataframes
+df_humanos_combined = pd.concat([df_humanos_1, df_humanos_2], ignore_index=True)
+
+# Realizar el merge con el dataframe principal
+df = pd.merge(df, df_humanos_combined, 
+              on=['wordID', 'meaningID'], 
+              how='left')
+
+df.to_csv(f"{output_dir}/df_merged.csv")
 
 # Function to create human vs embedding bias plots for each layer
 def create_human_embedding_plots(data):
-    for layer in data['layer'].unique():
+    # Filter out layer 0
+    data = data[data['layer'] != 0]
+    # Calculate global min and max values for consistent scaling
+    x_min = data['diff_base_human'].min()-0.05
+    x_max = data['diff_base_human'].max()+0.05
+    y_min = -4 #data['diff_base_emb'].min()
+    y_max = 7.5 #data['diff_base_emb'].max()
+    # Use the most extreme value for both axes
+    global_min = min(x_min, y_min)
+    global_max = max(x_max, y_max)
+    
+    for layer in sorted(data['layer'].unique()):
         layer_data = data[data['layer'] == layer]
         
-        plt.figure(figsize=(24, 18))
+        plt.figure(figsize=(9, 12))
         for model in layer_data['Model'].unique():
             model_data = layer_data[layer_data['Model'] == model]
-            plt.scatter(model_data[model_data['meaningID'] == 1]['diff_base1'], 
-                        model_data[model_data['meaningID'] == 1]['diff_base_emb'], 
-                        label=f'{model} S1')
-            plt.scatter(model_data[model_data['meaningID'] == 2]['diff_base2'], 
-                        model_data[model_data['meaningID'] == 2]['diff_base_emb'], 
-                        label=f'{model} S2')
+            plt.scatter(model_data['diff_base_human'], 
+                       model_data['diff_base_emb'], 
+                       label=model)
 
-        plt.plot([layer_data[['diff_base1', 'diff_base2']].min().min(), 
-                  layer_data[['diff_base1', 'diff_base2']].max().max()], 
-                 [layer_data[['diff_base1', 'diff_base2']].min().min(), 
-                  layer_data[['diff_base1', 'diff_base2']].max().max()], 'k--')
+        plt.plot([global_min, global_max], [global_min, global_max], 'k--')
+        plt.xlim(x_min, x_max)
+        plt.ylim(y_min, y_max)
         plt.axvline(x=0, color='k', linestyle=':')
         plt.axhline(y=0, color='k', linestyle=':')
         plt.xlabel("Human Bias (%)")
-        plt.ylabel("Embedding Bias (%)")
+        plt.ylabel("Model Bias (%)")
         plt.title(f"Human vs Embedding Bias - Layer {layer}")
         plt.legend()
         plt.tick_params(axis='both', which='major', labelsize=12)
@@ -120,21 +157,20 @@ create_human_embedding_plots(df)
 
 # Function to perform statistical tests for each layer
 def perform_statistical_tests(data):
+    # Filter out layer 0
+    data = data[data['layer'] != 0]
     results = []
     for layer in data['layer'].unique():
         layer_data = data[data['layer'] == layer]
         
         diff_base_emb_WL = layer_data[layer_data['Model'] == 'GPT2 WordLevel']['diff_base_emb']
-        diff_base_emb_viejo = layer_data[layer_data['Model'] == 'GPT2 base']['diff_base_emb']
+        diff_base_emb_viejo = layer_data[layer_data['Model'] == 'GPT2']['diff_base_emb']
         
         # T-test to compare means of the two models
         test_modelos = stats.ttest_ind(diff_base_emb_WL, diff_base_emb_viejo, alternative='greater')
         
-        # Prepare human bias data
-        diff_base_humanos = pd.concat([
-            layer_data[layer_data['meaningID'] == 1]['diff_base1'],
-            layer_data[layer_data['meaningID'] == 2]['diff_base2']
-        ])
+        # Use diff_base_human directly
+        diff_base_humanos = layer_data['diff_base_human']
         
         # T-tests to compare model biases with human biases
         test_WL_Humano = stats.ttest_ind(diff_base_emb_WL, diff_base_humanos)
@@ -148,7 +184,6 @@ def perform_statistical_tests(data):
         })
     
     return pd.DataFrame(results)
-
 # Perform statistical tests for each layer
 test_results = perform_statistical_tests(df)
 
@@ -157,19 +192,53 @@ test_results.to_csv(f"{output_dir}/statistical_test_results.csv")
 
 # Function to create density plots for each layer
 def create_density_plots(data):
-    for layer in data['layer'].unique():
+    # Filter out layer 0
+    data = data[data['layer'] != 0]
+    # Calculate global min and max values for consistent scaling
+    x_min = data['diff_base_emb'].min()
+    x_max = data['diff_base_emb'].max()
+    # Pre-calculate all densities to find global y max
+    y_max = 0
+    densities_by_layer = {}
+    for layer in sorted(data['layer'].unique()):
         layer_data = data[data['layer'] == layer]
+        # Calculate kernel density estimates for both models
+        base_kde = stats.gaussian_kde(layer_data[layer_data['Model'] == 'GPT2']['diff_base_emb'].dropna())
+        wl_kde = stats.gaussian_kde(layer_data[layer_data['Model'] == 'GPT2 WordLevel']['diff_base_emb'].dropna())
+        # Create evaluation points
+        x_eval = np.linspace(x_min, x_max, 200)
+        # Evaluate densities
+        base_density = base_kde(x_eval)
+        wl_density = wl_kde(x_eval)
+        # Store densities for later plotting
+        densities_by_layer[layer] = {
+            'x_eval': x_eval,
+            'base_density': base_density,
+            'wl_density': wl_density
+        }
+        # Update global y_max
+        y_max = max(y_max, base_density.max(), wl_density.max())
+    for layer in data['layer'].unique():
+        plt.figure(figsize=(9, 15))
+        densities = densities_by_layer[layer]
+        plt.plot(densities['x_eval'], densities['base_density'], 
+                color="red", linewidth=2, label="base")
+        plt.plot(densities['x_eval'], densities['wl_density'], 
+                color="blue", linewidth=2, label="Word Level")
         
-        plt.figure(figsize=(30, 18))
-        sns.kdeplot(data=layer_data[layer_data['Model'] == 'GPT2 base']['diff_base_emb'], 
-                    fill=True, color="red", label="base", warn_singular=False)
-        sns.kdeplot(data=layer_data[layer_data['Model'] == 'GPT2 WordLevel']['diff_base_emb'], 
-                    fill=True, color="blue", label="Word Level",warn_singular=False)
+        plt.fill_between(densities['x_eval'], densities['base_density'], 
+                        alpha=0.2, color="red")
+        plt.fill_between(densities['x_eval'], densities['wl_density'], 
+                        alpha=0.2, color="blue")
+        
+        plt.xlim(-7, 7)
+        plt.ylim(0, y_max)
         plt.xlabel("Difference between base and meaning embeddings")
         plt.ylabel("Density")
         plt.title(f"Density Plots - Layer {layer}")
         plt.tick_params(axis='both', which='major', labelsize=12)
         plt.tight_layout()
+        plt.legend()
         plt.savefig(f"{output_dir}/density_plots/layer_{layer}.png", dpi=300)
         plt.savefig(f"{output_dir}/density_plots/layer_{layer}.svg", dpi=300)
         plt.close()
