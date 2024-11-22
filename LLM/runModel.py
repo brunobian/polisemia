@@ -21,11 +21,6 @@ def get_query(context, oracion):
     return query
 
 def tokenize(text, tokenizer, model_type):
-    '''if model_type == "GPT2_wordlevel":
-        text_ids = torch.tensor([tokenizer.encode(text).ids]).to("mps")#.to('cuda')
-    else:
-        text_ids = tokenizer.encode(text, return_tensors="pt").to("mps")#.to('cuda') 
-    SEGUN LO DE AGUS NO HACE FALTA DIFERENCIAR'''
     text_ids = tokenizer.encode(text, return_tensors="pt").to("mps")#.to('cuda')
     return text_ids
 
@@ -40,7 +35,6 @@ def find_target(text_ids, target, lista_sig, model_type, tokenizer):
     elif model_type == "GPT2_wordlevel":
         targ_tokenizado = tokenizer.encode(target) # GPT
         target_token  = tokenizer.encode(target, return_tensors="pt").to("mps")#.to('cuda')
-        '''REVISAR SI ESTO ULTIMO HACE FALTA'''
             
     ## Obtengo los significados de la lista tokenizados en formato tensor
     list_sig_ids = []
@@ -51,23 +45,12 @@ def find_target(text_ids, target, lista_sig, model_type, tokenizer):
             #Tomo el primer elemento del tensor porque los ids estan dentro de una matriz de tamaño [1, n] con n cantidad de tokens
             ids = (tokenizer.encode(" " + sig, return_tensors="pt").to("mps"))#.to('cuda') 
             assert(ids.size()[0] == 1)
-            '''shapePreModif = ids.size()
-            shapeSqueeze = ids.squeeze().size()
-            shapePrimerElem = ids[0].size()
-            typePreModif = type(ids)
-            typeSqueeze = type(ids.squeeze())
-            typePrimerElem = type(ids[0])
-            print(f'El shape antes era {shapePreModif}, con squeeze es {shapeSqueeze} y con el [0] es {shapePrimerElem}')
-            print(f'El type antes era {typePreModif}, con squeeze es {typeSqueeze} y con el [0] es {typePrimerElem}')'''
             sig_ids  = ids[0]
         elif model_type== "Llama2":
             sig_ids  = tokenizer.encode(sig, return_tensors="pt").to("mps")#.to('cuda')
             sig_ids  = sig_ids[0,1:]  # Saco el primer elemento que es <s>
             sig_ids_list= sig_ids.tolist() 
         elif model_type == "GPT2_wordlevel":
-            '''sig_ids  = torch.tensor([tokenizer.encode(sig).ids]).to("mps")#.to('cuda')
-            sig_ids_list= sig_ids.tolist()  # si la palabra del significado tiene mas de un token, me quedo con el primero
-            LO DE ABAJO ES LO DE AGUS, chequear si hace flta hacer squeeze'''
             sig_ids  = tokenizer.encode(sig, return_tensors='pt').to("mps")#.to('cuda')
             assert(sig_ids.size()[0] == 1)
             sig_ids  = sig_ids[0]
@@ -112,10 +95,10 @@ def get_sig_embedding(model, model_type, sig, pesoDeSignificados):
         for s in sig:
             # Obtengo un tensor con los embeddings de cada token que conforma la palabra significado
             sig_tokens_embeddings = model.transformer.wte(s)
+            assert(sig_tokens_embeddings.size(0) >= 1)
             # Tomo el promedio de los embeddings de los tokens y luego lo formateo para que quede con shape [1,768]
             sig_tokens_embeddings = torch.mean(sig_tokens_embeddings,dim=0).unsqueeze(0)
             # Si en vez de usar el promedio, tomo el primer token (es esta opcion o el promedio)
-            '''sig_tokens_embeddings = sig_tokens_embeddings[0].unsqueeze(0)'''
             sig_embeddings_list.append(sig_tokens_embeddings) 
     elif model_type == "Llama2":
         for s in sig:
@@ -124,14 +107,12 @@ def get_sig_embedding(model, model_type, sig, pesoDeSignificados):
         for s in sig:
             # Obtengo un tensor con los embeddings de cada token que conforma la palabra significado
             sig_tokens_embeddings = model.transformer.wte(s)
+            assert(sig_tokens_embeddings.size(0) == 1)
             # Tomo el promedio de los embeddings de los tokens y luego lo formateo para que quede con shape [1,768]
             ####sig_tokens_embeddings = torch.mean(sig_tokens_embeddings,dim=0).unsqueeze(0)
             # Si en vez de usar el promedio, tomo el primer token (es esta opcion o el promedio)
             #sig_tokens_embeddings = sig_tokens_embeddings[0].unsqueeze(0)
             sig_embeddings_list.append(sig_tokens_embeddings) 
-            '''VERSION DE AGUS
-            sig_embeddings_list.append(model.transformer.wte(s[0])) #Tomo el primer id para cada palabra de la lista de significado
-            '''
 
     # Concateno los embeddings de los significados en una lista para poder operar con ellos
     stacked_embeddings = torch.stack(sig_embeddings_list)

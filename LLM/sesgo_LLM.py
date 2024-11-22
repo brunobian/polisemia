@@ -13,7 +13,7 @@ from statsmodels.formula.api import ols
 from statsmodels.stats.multicomp import pairwise_tukeyhsd, MultiComparison'''
 
 
-from modifyInput import getStimuliMergedWithExperimentResults, getStimuliMergedWithFormattedExperimentResults, shuffleMeanings, setMeaning
+from modifyInput import getStimuliMergedWithExperimentResults, getStimuliMergedWithFormattedExperimentResults, getStimuliMergedWithFormattedExperimentResultsFromCluster, shuffleMeanings, setMeaning
 from plots import getPlots
 from getBias import getBias
 from getBias_forPreparedDf import getBias_forPreparedDf
@@ -72,7 +72,8 @@ def cargar_modelo(model_type, model_path=""):
 layers = [0,1,2,3,4,5,6,7,8,9,10,11,12]
 
 ### GPT 2 ###
-m = "GPT2"
+#m = "GPT2"
+m = "GPT2_wordlevel"
 version = "ConExperimento4" 
 #"ConExperimento2" 
 #"ConExperimento3" 
@@ -81,7 +82,9 @@ version = "ConExperimento4"
 #"Hola"
 #"SoloStimuli"
 #"SoloUnaPalabraEnElModelo"
-tipoMetrica = "absDeCadaSesgo"
+#Cluster1
+#Cluster2
+tipoMetrica = "sinValorAbsoluto"
 #"valorAbsoluto"
 #"sinValorAbsoluto"
 #"absDeCadaSesgo"
@@ -122,7 +125,16 @@ else:
                             basepath = f'version{m}({tipoMetrica})/soloUnaPalabra/'
                             titulo_segun = "a partir de solo la palabra raya "
                             df = getStimuliMergedWithExperimentResults(f'{basepath}StimuliUnaPalabra.csv', 'testVacio.experiment.json', basepath)
-
+                        else: 
+                            if(version == "Cluster1"):
+                                basepath = f'version{m}({tipoMetrica})/clusters/primerCluster/'
+                                titulo_segun = "con los resultados del primer cluster de participantes "
+                                df = getStimuliMergedWithFormattedExperimentResultsFromCluster('Stimuli.csv', f'version{m}({tipoMetrica})/clusters/experiment_results_formatted_k_means.csv', basepath, 0)
+                            else: 
+                                if(version == "Cluster2"):
+                                    basepath = f'version{m}({tipoMetrica})/clusters/segundoCluster/'
+                                    titulo_segun = "con los resultados del segundo cluster de participantes "
+                                    df = getStimuliMergedWithFormattedExperimentResultsFromCluster('Stimuli.csv', f'version{m}({tipoMetrica})/clusters/experiment_results_formatted_k_means.csv', basepath, 1)
 
 model, tokenizer = cargar_modelo(m) #TODO: Pensar mejor como devolver esto, si hace falta estar pasando las tres cosas o que
 

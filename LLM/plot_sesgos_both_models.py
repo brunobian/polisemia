@@ -17,17 +17,20 @@ meaningType = "conExperimento(4taVersion)"
 
 # Create output directory
 output_dir = f"comparativaSesgos/gpt2yGpt2Wordlevel/sinValorAbsoluto/{meaningType}"
-
+'''
 # Load data for both models
 df = pd.read_csv(f"versionGPT2(sinValorAbsoluto)/{meaningType}/errorByLayer.csv")
 df_w = pd.read_csv(f"versionGPT2_wordlevel(sinValorAbsoluto)/{meaningType}/errorByLayer.csv")
 
 # Add model identifier
-df['Model'] = 'GPT2'
-df_w['Model'] = 'GPT2 WordLevel'
+df['Model'] = 'GPT-2'
+df_w['Model'] = 'GPT-2 Word Level'
 
 # Combine both dataframes
 df = pd.concat([df_w, df], ignore_index=True)
+'''
+df = pd.read_csv(f"versionGPT2_wordlevel(sinValorAbsoluto)/{meaningType}/errorByLayer.csv")
+df['Model'] = 'GPT-2 Word Level'
 
 # Rename columns for clarity
 df = df.rename(columns={
@@ -36,9 +39,15 @@ df = df.rename(columns={
 })
 
 # Set global font sizes
-plt.rcParams['font.size'] = 25  # Base font size
-plt.rcParams['axes.titlesize'] = 30  # Title font size
-plt.rcParams['axes.labelsize'] = 22  # Axis label font size
+plt.rcParams['font.size'] = 12  # Base font size
+plt.rcParams['axes.titlesize'] = 10  # Title font size
+plt.rcParams['axes.labelsize'] = 15  # Axis label font size
+LABELSIZE = 15 
+TITLESIZE = 15
+FIGSIZE_SCATTER_MODEL = (7, 6)
+FIGSIZE_BOXPLOT_MODEL = (9, 14)
+FIGSIZE_SCATTER_HUMAN = (7, 6)
+FIGSIZE_DENSITY_HUMAN = (9, 14)
 
 # Function to create and save plots for each layer
 def create_plots_by_layer(data, plot_type):
@@ -50,8 +59,8 @@ def create_plots_by_layer(data, plot_type):
         y_min = data['SignS'].min()
         y_max = data['SignS'].max()
         # Use the most extreme value for both axes to make them equal
-        global_min = min(x_min, y_min)
-        global_max = max(x_max, y_max)
+        global_min = min(x_min, y_min)-0.01
+        global_max = max(x_max, y_max)+0.01
     elif plot_type == 'boxplot':
         y_min = -2 #data['diff_base_emb'].min()
         y_max = 2.5 #data['diff_base_emb'].max()
@@ -59,25 +68,29 @@ def create_plots_by_layer(data, plot_type):
     for layer in data['layer'].unique():
         layer_data = data[data['layer'] == layer]
         
-        plt.figure(figsize=(10, 15))
         
         if plot_type == 'scatter':
+            plt.figure(figsize=FIGSIZE_SCATTER_MODEL)
             for model in layer_data['Model'].unique():
+                COLOR = 'blue' if model == 'GPT-2 Word Level' else 'red'
                 model_data = layer_data[layer_data['Model'] == model]
-                plt.scatter(model_data['baseS'], model_data['SignS'], label=model)
+                plt.scatter(model_data['baseS'], model_data['SignS'], label=model, color = COLOR)
             plt.plot([global_min, global_max], [global_min, global_max], 'k--')
             plt.xlim(global_min, global_max)
             plt.ylim(global_min, global_max)
-            plt.xlabel("Base Bias")
-            plt.ylabel("Generated Bias")
+            #plt.xlabel("Sesgo base")
+            #plt.ylabel("Sesgo generado")
+            plt.legend(loc='lower right', fontsize=TITLESIZE)
         
         elif plot_type == 'boxplot':
+            plt.figure(figsize=FIGSIZE_BOXPLOT_MODEL)
             sns.boxplot(x='Model', y='diff_base_emb', data=layer_data)
             plt.ylim(y_min, y_max)
-            plt.ylabel("Difference between base and generated bias")
+            plt.ylabel("Diferencia entre el sesgo generado y sesgo base")
         
-        plt.title(f"Layer {layer}")
-        plt.tick_params(axis='both', which='major', labelsize=12)
+        plt.text(0.1, 0.95, f"Capa {layer}", fontsize=TITLESIZE, ha='center', va='center', transform=plt.gca().transAxes)
+        # Add description in the bottom right
+        plt.tick_params(axis='both', which='major', labelsize=LABELSIZE)
         plt.tight_layout()
         plt.savefig(f"{output_dir}/{plot_type}/layer_{layer}.png", dpi=300)
         plt.savefig(f"{output_dir}/{plot_type}/layer_{layer}.svg", dpi=300)
@@ -87,7 +100,7 @@ def create_plots_by_layer(data, plot_type):
 create_plots_by_layer(df, 'scatter')
 
 # Calculate distance of biases to the diagonal
-df['diff_base_emb'] = (df['SignS'] - df['baseS']) / df['baseS'].abs()
+df['diff_base_emb'] = (df['SignS'] - df['baseS'])
 
 # Create boxplots for each layer
 create_plots_by_layer(df, 'boxplot')
@@ -121,8 +134,8 @@ def create_human_embedding_plots(data):
     # Calculate global min and max values for consistent scaling
     x_min = data['diff_base_human'].min()-0.05
     x_max = data['diff_base_human'].max()+0.05
-    y_min = -4 #data['diff_base_emb'].min()
-    y_max = 7.5 #data['diff_base_emb'].max()
+    y_min = -0.075 #data['diff_base_emb'].min()
+    y_max = 0.17 #data['diff_base_emb'].max()
     # Use the most extreme value for both axes
     global_min = min(x_min, y_min)
     global_max = max(x_max, y_max)
@@ -130,23 +143,33 @@ def create_human_embedding_plots(data):
     for layer in sorted(data['layer'].unique()):
         layer_data = data[data['layer'] == layer]
         
-        plt.figure(figsize=(9, 12))
+        plt.figure(figsize=FIGSIZE_SCATTER_HUMAN)
         for model in layer_data['Model'].unique():
+            COLOR = 'blue' if model == 'GPT-2 Word Level' else 'red'
             model_data = layer_data[layer_data['Model'] == model]
-            plt.scatter(model_data['diff_base_human'], 
-                       model_data['diff_base_emb'], 
-                       label=model)
-
-        plt.plot([global_min, global_max], [global_min, global_max], 'k--')
+             # Calculate Pearson correlation
+            correlation, p_value = stats.pearsonr(
+                model_data['diff_base_human'],
+                model_data['diff_base_emb']
+            )
+            # Plot scatter points
+            plt.scatter(
+                model_data['diff_base_human'], 
+                model_data['diff_base_emb'], 
+                color=COLOR,
+                label=f"r = {correlation:.2f}, p = {p_value:.2f}"
+            )
+        #plt.plot([global_min, global_max], [global_min, global_max], 'k--')
         plt.xlim(x_min, x_max)
         plt.ylim(y_min, y_max)
         plt.axvline(x=0, color='k', linestyle=':')
         plt.axhline(y=0, color='k', linestyle=':')
-        plt.xlabel("Human Bias (%)")
-        plt.ylabel("Model Bias (%)")
-        plt.title(f"Human vs Embedding Bias - Layer {layer}")
+        #plt.xlabel("Sesgo en humanos")
+        #plt.ylabel("Sesgo computacional")
+        #plt.title(f"Sesgo en humano vs sesgo computacional - Capa {layer}")
+        plt.text(0.1, 0.95, f"Capa {layer}", fontsize=TITLESIZE, ha='center', va='center', transform=plt.gca().transAxes)
         plt.legend()
-        plt.tick_params(axis='both', which='major', labelsize=12)
+        plt.tick_params(axis='both', which='major', labelsize=LABELSIZE)
         plt.tight_layout()
         plt.savefig(f"{output_dir}/human_embedding/layer_{layer}.png", dpi=300)
         plt.savefig(f"{output_dir}/human_embedding/layer_{layer}.svg", dpi=300)
@@ -155,6 +178,7 @@ def create_human_embedding_plots(data):
 # Create human vs embedding bias plots for each layer
 create_human_embedding_plots(df)
 
+'''
 # Function to perform statistical tests for each layer
 def perform_statistical_tests(data):
     # Filter out layer 0
@@ -163,8 +187,8 @@ def perform_statistical_tests(data):
     for layer in data['layer'].unique():
         layer_data = data[data['layer'] == layer]
         
-        diff_base_emb_WL = layer_data[layer_data['Model'] == 'GPT2 WordLevel']['diff_base_emb']
-        diff_base_emb_viejo = layer_data[layer_data['Model'] == 'GPT2']['diff_base_emb']
+        diff_base_emb_WL = layer_data[layer_data['Model'] == 'GPT-2 Word Level']['diff_base_emb']
+        diff_base_emb_viejo = layer_data[layer_data['Model'] == 'GPT-2']['diff_base_emb']
         
         # T-test to compare means of the two models
         test_modelos = stats.ttest_ind(diff_base_emb_WL, diff_base_emb_viejo, alternative='greater')
@@ -178,9 +202,9 @@ def perform_statistical_tests(data):
         
         results.append({
             'Layer': layer,
-            'WordLevel vs base': test_modelos,
+            'WordLevel vs GPT2': test_modelos,
             'WordLevel vs Human': test_WL_Humano,
-            'base vs Human': test_Base_Humano
+            'GPT2 vs Human': test_Base_Humano
         })
     
     return pd.DataFrame(results)
@@ -203,8 +227,8 @@ def create_density_plots(data):
     for layer in sorted(data['layer'].unique()):
         layer_data = data[data['layer'] == layer]
         # Calculate kernel density estimates for both models
-        base_kde = stats.gaussian_kde(layer_data[layer_data['Model'] == 'GPT2']['diff_base_emb'].dropna())
-        wl_kde = stats.gaussian_kde(layer_data[layer_data['Model'] == 'GPT2 WordLevel']['diff_base_emb'].dropna())
+        base_kde = stats.gaussian_kde(layer_data[layer_data['Model'] == 'GPT-2']['diff_base_emb'].dropna())
+        wl_kde = stats.gaussian_kde(layer_data[layer_data['Model'] == 'GPT-2 Word Level']['diff_base_emb'].dropna())
         # Create evaluation points
         x_eval = np.linspace(x_min, x_max, 200)
         # Evaluate densities
@@ -219,24 +243,24 @@ def create_density_plots(data):
         # Update global y_max
         y_max = max(y_max, base_density.max(), wl_density.max())
     for layer in data['layer'].unique():
-        plt.figure(figsize=(9, 15))
+        plt.figure(figsize=FIGSIZE_DENSITY_HUMAN)
         densities = densities_by_layer[layer]
         plt.plot(densities['x_eval'], densities['base_density'], 
-                color="red", linewidth=2, label="base")
+                color="red", linewidth=2, label="GPT-2")
         plt.plot(densities['x_eval'], densities['wl_density'], 
-                color="blue", linewidth=2, label="Word Level")
+                color="blue", linewidth=2, label="GPT-2 Word Level")
         
         plt.fill_between(densities['x_eval'], densities['base_density'], 
                         alpha=0.2, color="red")
         plt.fill_between(densities['x_eval'], densities['wl_density'], 
                         alpha=0.2, color="blue")
         
-        plt.xlim(-7, 7)
+        plt.xlim(-0.075, 0.17)
         plt.ylim(0, y_max)
-        plt.xlabel("Difference between base and meaning embeddings")
-        plt.ylabel("Density")
-        plt.title(f"Density Plots - Layer {layer}")
-        plt.tick_params(axis='both', which='major', labelsize=12)
+        plt.xlabel("Diferencia entre sesgos")
+        plt.ylabel("Densidad")
+        #plt.title(f"Grafico de densidad - Capa {layer}")
+        plt.tick_params(axis='both', which='major', labelsize=LABELSIZE)
         plt.tight_layout()
         plt.legend()
         plt.savefig(f"{output_dir}/density_plots/layer_{layer}.png", dpi=300)
@@ -244,4 +268,4 @@ def create_density_plots(data):
         plt.close()
 
 # Create density plots for each layer
-create_density_plots(df)
+create_density_plots(df)'''

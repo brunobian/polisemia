@@ -1,6 +1,6 @@
 import pandas as pd
 from modifyStimuli import getStimuliAsDF 
-from modifyExperimentResults import importAndCleanExperimentResults, importExperimentResults
+from modifyExperimentResults import importAndCleanExperimentResults, importExperimentResults, filterResultsByCluster
 
 def mergeStimuliAndResults(stimuli, results):
     merged_df = pd.merge(stimuli, results, on=['wordID','target','meaningID'], how='left').reset_index()
@@ -20,6 +20,14 @@ def getStimuliMergedWithExperimentResults(stimuli, results, basepath):
 def getStimuliMergedWithFormattedExperimentResults(stimuli, results, basepath):
     df = getStimuliAsDF(stimuli)
     resultsDf = importExperimentResults(results)
+    merged_df = mergeStimuliAndResults(df, resultsDf)
+    merged_df.to_csv(f"{basepath}df_inicial.csv")
+    return merged_df
+
+def getStimuliMergedWithFormattedExperimentResultsFromCluster(stimuli, results, basepath, clusterNumber):
+    df = getStimuliAsDF(stimuli)
+    resultsDf = importExperimentResults(results)
+    resultsDf = filterResultsByCluster(resultsDf, clusterNumber)
     merged_df = mergeStimuliAndResults(df, resultsDf)
     merged_df.to_csv(f"{basepath}df_inicial.csv")
     return merged_df

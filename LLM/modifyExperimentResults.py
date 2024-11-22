@@ -65,11 +65,16 @@ def cleanResults(resultsDf):
 
 def importAndCleanExperimentResults(file):
     resultsDf = loadExperimentResults(file).reset_index()
-    return cleanResults(resultsDf)
+    resultsCleaned = cleanResults(resultsDf)
+    return toLower(resultsCleaned)
 
 def toLower(df):
     df['target'] = df['target'].str.lower()
-    df['answers'] = df['answers'].apply(lambda row: [(str(item[0]).lower(), int(item[1])) for item in ast.literal_eval(row)])
+    df['answers'] = df['answers'].apply(
+        lambda row: sorted(
+            [(str(item[0]).lower(), int(item[1])) for item in ast.literal_eval(row)], 
+            key=lambda x: x[1], reverse=True)[:5]
+    )
     '''
     DF RETURNED:
     wordID    target  meaningID        answers  
@@ -81,3 +86,6 @@ def importExperimentResults(file):
     resultsDf = pd.read_csv(file)
     resultsToLower = toLower(resultsDf)
     return resultsToLower
+
+def filterResultsByCluster(df, clusterNumber):
+    return df[df['class_km'] == clusterNumber]
