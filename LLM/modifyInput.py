@@ -2,9 +2,12 @@ import pandas as pd
 from modifyStimuli import getStimuliAsDF 
 from modifyExperimentResults import importAndCleanExperimentResults, importExperimentResults, filterResultsByCluster
 
-def mergeStimuliAndResults(stimuli, results):
+def mergeStimuliAndResults(stimuli, results, cluster = False):
     merged_df = pd.merge(stimuli, results, on=['wordID','target','meaningID'], how='left').reset_index()
-    merged_df['answers'] = merged_df.apply(lambda row: row['answers'] if isinstance(row['answers'], list) else row['significado'], axis=1)
+    if(cluster):
+        merged_df = merged_df[merged_df['answers'].notna()]
+    else:
+        merged_df['answers'] = merged_df.apply(lambda row: row['answers'] if isinstance(row['answers'], list) else row['significado'], axis=1)
     merged_df = merged_df.drop(columns=['index', 'significado'])
     merged_df = merged_df.rename(columns={'answers': 'significado'})
     merged_df = merged_df[['wordID','meaningID','contextID','combinationID','target','significado','oracion','Contexto']]
@@ -28,7 +31,7 @@ def getStimuliMergedWithFormattedExperimentResultsFromCluster(stimuli, results, 
     df = getStimuliAsDF(stimuli)
     resultsDf = importExperimentResults(results)
     resultsDf = filterResultsByCluster(resultsDf, clusterNumber)
-    merged_df = mergeStimuliAndResults(df, resultsDf)
+    merged_df = mergeStimuliAndResults(df, resultsDf, cluster = True)
     merged_df.to_csv(f"{basepath}df_inicial.csv")
     return merged_df
 

@@ -57,14 +57,18 @@ def reordeno_matriz(sesgos, df_original, basepath):
         df=[]
         # Mostrar los resultados
         for CID1, sesgoCID1, CID2, sesgoCID2, CID3, sesgoCID3, CID4, sesgoCID4 in bloques:
-            wordID = CID1[-2:]
-            assert(CID1 == '31'+wordID)
-            assert(CID2 == '11'+wordID)
-            assert(CID3 == '32'+wordID)
-            assert(CID4 == '22'+wordID)
-            target = df_original[df_original['wordID']==int(wordID)]['target'].to_list()[0]
-            df.append([wordID, target, 1, sesgoCID1[nlayer], sesgoCID2[nlayer]])
-            df.append([wordID, target, 2, sesgoCID3[nlayer], sesgoCID4[nlayer]])
+            wordID1 = CID1[-2:]
+            meaningID1 = CID1[1]
+            assert(CID1 == '3'+meaningID1+wordID1)
+            assert(CID2 == meaningID1+meaningID1+wordID1)
+            target1 = df_original[df_original['wordID']==int(wordID1)]['target'].to_list()[0]
+            df.append([wordID1, target1, meaningID1, sesgoCID1[nlayer], sesgoCID2[nlayer]])
+            wordID2 = CID3[-2:]
+            meaningID2 = CID3[1]
+            assert(CID3 == '3'+meaningID2+wordID2)
+            assert(CID4 == meaningID2+meaningID2+wordID2)
+            target2 = df_original[df_original['wordID']==int(wordID2)]['target'].to_list()[0]
+            df.append([wordID2, target2, meaningID2, sesgoCID3[nlayer], sesgoCID4[nlayer]])
         '''
         tengo
         [capa0:  [[0, 1, sesgoBase, sesgoGen],
