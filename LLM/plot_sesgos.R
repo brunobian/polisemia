@@ -1,6 +1,6 @@
 library(ggplot2)
-setwd("/data/brunobian/Documents/Repos/Repos_Analisis/polisemia/LLM/")
-df=read.csv2("distancias.csv",sep=",")
+#setwd("/data/brunobian/Documents/Repos/Repos_Analisis/polisemia/LLM/")
+df=read.csv("distancias.csv",sep=",")
 
 df[,"baseS1"] <- as.numeric(as.character(df[,"X2"]))
 df[,"SignS1"] <- as.numeric(as.character(df[,"X3"]))
@@ -14,6 +14,7 @@ ggplot(df) +
   xlab("Sesgo Base") +                                                          
   ylab("Sesgo Generado")
 
+#ggsave("base_generado.png", plot = p)
 df["diff_base1_emb"] <- (df["SignS1"] - df["baseS1"]) / abs(df["baseS1"])
 df["diff_base2_emb"] <- (df["SignS2"] - df["baseS2"]) / abs(df["baseS2"])
 
@@ -25,14 +26,14 @@ df2[,"diff_base2"] <- as.numeric(as.character(df2[,"diff_base2"]))
 
 df <- merge(df,df2,by.x="X0",by.y="indTarget")
 
-ggplot(df) +                                                               
+ ggplot(df) +                                                               
   geom_point(aes(x=diff_base1,y=diff_base1_emb), col="#00CDCD")+                           
   geom_point(aes(x=diff_base2,y=diff_base2_emb), col= "#00CDCD")+                          
   geom_abline(linetype="longdash") +
   geom_vline(xintercept = 0)+
   geom_hline(yintercept = 0)+
   xlab("Sesgo humano (%)") +                                                          
-  ylab("Sesgo embedding (%)") + 
-  xlim(c(-0.1,0.5))+
-  ylim(c(-1,2))
+  ylab("Sesgo embedding (%)") 
+  #xlim(c(-0.1,0.5))+
+  #ylim(c(-1,2))
 

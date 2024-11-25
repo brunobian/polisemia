@@ -1,0 +1,13 @@
+,Layer,WordLevel vs GPT2,WordLevel vs Human,GPT2 vs Human
+0,1,"TtestResult(statistic=nan, pvalue=nan, df=nan)","TtestResult(statistic=-12.361373507342686, pvalue=5.203342716115456e-26, df=186.0)","TtestResult(statistic=nan, pvalue=nan, df=nan)"
+1,2,"TtestResult(statistic=nan, pvalue=nan, df=nan)","TtestResult(statistic=-12.043881958361782, pvalue=4.537828605429646e-25, df=186.0)","TtestResult(statistic=nan, pvalue=nan, df=nan)"
+2,3,"TtestResult(statistic=nan, pvalue=nan, df=nan)","TtestResult(statistic=-12.211115265740933, pvalue=1.4511723585531929e-25, df=186.0)","TtestResult(statistic=nan, pvalue=nan, df=nan)"
+3,4,"TtestResult(statistic=nan, pvalue=nan, df=nan)","TtestResult(statistic=-12.596820858269222, pvalue=1.0408778009987196e-26, df=186.0)","TtestResult(statistic=nan, pvalue=nan, df=nan)"
+4,5,"TtestResult(statistic=nan, pvalue=nan, df=nan)","TtestResult(statistic=-12.734018443218307, pvalue=4.071292230129908e-27, df=186.0)","TtestResult(statistic=nan, pvalue=nan, df=nan)"
+5,6,"TtestResult(statistic=nan, pvalue=nan, df=nan)","TtestResult(statistic=-12.778701714898295, pvalue=2.998504970414505e-27, df=186.0)","TtestResult(statistic=nan, pvalue=nan, df=nan)"
+6,7,"TtestResult(statistic=nan, pvalue=nan, df=nan)","TtestResult(statistic=-12.314228202181654, pvalue=7.17953848780824e-26, df=186.0)","TtestResult(statistic=nan, pvalue=nan, df=nan)"
+7,8,"TtestResult(statistic=nan, pvalue=nan, df=nan)","TtestResult(statistic=-11.592385321018527, pvalue=9.761451641218805e-24, df=186.0)","TtestResult(statistic=nan, pvalue=nan, df=nan)"
+8,9,"TtestResult(statistic=nan, pvalue=nan, df=nan)","TtestResult(statistic=-11.058510703488144, pvalue=3.5919244615697213e-22, df=186.0)","TtestResult(statistic=nan, pvalue=nan, df=nan)"
+9,10,"TtestResult(statistic=nan, pvalue=nan, df=nan)","TtestResult(statistic=-10.38074947310134, pvalue=3.325513797678926e-20, df=186.0)","TtestResult(statistic=nan, pvalue=nan, df=nan)"
+10,11,"TtestResult(statistic=nan, pvalue=nan, df=nan)","TtestResult(statistic=-10.380517920586213, pvalue=3.330624614819135e-20, df=186.0)","TtestResult(statistic=nan, pvalue=nan, df=nan)"
+11,12,"TtestResult(statistic=nan, pvalue=nan, df=nan)","TtestResult(statistic=-10.028920785664132, pvalue=3.394201996565025e-19, df=186.0)","TtestResult(statistic=nan, pvalue=nan, df=nan)"

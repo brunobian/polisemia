@@ -1,0 +1,130 @@
+library(ggplot2)
+library(dplyr)
+#setwd("/data/brunobian/Documents/Repos/Repos_Analisis/polisemia/LLM/")
+setwd("~/Desktop/Tesis/polisemia/LLM/")
+
+#Cargo distancias de ambos modelos
+df=read.csv("distancias.csv",sep=",")
+df_w=read.csv("distancias_nuevo_modelo.csv",sep=",")
+
+#Agrego nueva variable categórica a los df
+df <- df %>% mutate(Model = 'GPT2 base')
+df_w <- df_w %>% mutate(Model = 'GPT2 WordLevel')
+
+#Junto ambos df's
+df <- bind_rows(df_w, df)
+
+#Renombrar columnas
+df <- df %>%
+  mutate(
+    baseS1 = as.numeric(as.character(X2)),
+    SignS1 = as.numeric(as.character(X3)),
+    baseS2 = as.numeric(as.character(X5)),
+    SignS2 = as.numeric(as.character(X6))
+  ) %>%
+  select(-X2, -X3, -X5, -X6) 
+
+#Sesgo base vs Sesgo Significado para los dos significados de cada palabra.
+q <-ggplot(df) + 
+  geom_point(aes(x=baseS1,y=SignS1, color = Model))+                           
+  geom_point(aes(x=baseS2,y=SignS2, color = Model))+                          
+  geom_abline(linetype="longdash") +                                            
+  xlab("Sesgo Base") +                                                          
+  ylab("Sesgo Generado") 
+  
+print(q)
+ggsave("base_generado.png", plot = q, width = 5.33, height = 3.29, dpi = 300)
+
+
+#Distancia de los sesgos a la diagonal
+df["diff_base1_emb"] <- (df["SignS1"] - df["baseS1"]) / abs(df["baseS1"])
+df["diff_base2_emb"] <- (df["SignS2"] - df["baseS2"]) / abs(df["baseS2"])
+
+#Leer datos con resultados comportamentales
+df_humanos <- read.csv2("../comportamental/accuracies.csv",sep=",")
+df_humanos <- df_humanos[,c("indTarget","diff_base1","diff_base2")]
+
+df_humanos[,"diff_base1"] <- as.numeric(as.character(df_humanos[,"diff_base1"]))
+df_humanos[,"diff_base2"] <- as.numeric(as.character(df_humanos[,"diff_base2"]))
+
+df <- merge(df,df_humanos,by.x="X0",by.y="indTarget")
+
+ggplot(df) +                                                               
+  geom_point(aes(x=diff_base1, y=diff_base1_emb, color = Model))+                           
+  geom_point(aes(x=diff_base2, y=diff_base2_emb, color = Model))+                          
+ geom_abline(linetype="longdash") +
+  geom_vline(xintercept = 0)+
+  geom_hline(yintercept = 0)+
+  xlab("Sesgo humano (%)") +                                                          
+  ylab("Sesgo embedding (%)")  
+ # xlim(c(-0.1,0.5))+
+ # ylim(c(-1,2))
+  #scale_color_manual(values = c("GPT2 base" = "#00CDCD", "GPT2 WordLevel" = "chocolate")) +
+  
+ggsave("humano_embedding.png")
+
+#La palabra que es un outlier fuerte es GOMA en la posicion 73. La otra es sostén en la posicion 60 con índice 19.
+
+#Gráfico sin el outlier
+
+#Sacar los outliers
+df <- df %>% filter(X0 != 24 ) %>% filter(X0 != 19)
+
+ggplot(df) +                                                               
+  geom_point(aes(x=diff_base1, y=diff_base1_emb, color = Model))+                           
+  geom_point(aes(x=diff_base2, y=diff_base2_emb, color = Model))+                          
+  geom_abline(linetype="longdash") +
+  geom_vline(xintercept = 0)+
+  geom_hline(yintercept = 0)+
+  xlab("Sesgo humano (%)") +                                                          
+  ylab("Sesgo embedding (%)")  
+# xlim(c(-0.1,0.5))+
+# ylim(c(-1,2))
+#scale_color_manual(values = c("GPT2 base" = "#00CDCD", "GPT2 WordLevel" = "chocolate")) +
+
+ggsave("humano_embedding.png")
+
+  
+#Hacer el boxplot
+
+#Me quedo con las columnas que tienen la diferencia de sesgo base de los embeddings con el sesgo generado
+#para ambos significados
+df_diff_base1_emb <- df %>% select(X0, diff_base1_emb, Model) %>% rename(diff_base_emb = diff_base1_emb)
+df_diff_base2_emb <- df %>% select(X0, diff_base2_emb, Model) %>%  rename(diff_base_emb= diff_base2_emb)
+df_diff_base_emb <- rbind(df_diff_base1_emb, df_diff_base2_emb)
+
+#Boxplot de las diferencias de sesgo base contra sesgo generado
+ggplot(df) + geom_boxplot(aes(x = Model, y = diff_base1_emb, color = Model), width = 0.5) 
+
+
+#Test de hipótesis
+
+#Para cada modelos, me quedo con las columnas que tienen la diferencia de sesgo base de los embeddings con el sesgo generado
+diff_base_emb_WL <- df_diff_base_emb %>% filter(Model == 'GPT2 WordLevel') %>% select(diff_base_emb)
+diff_base_emb_viejo <- df_diff_base_emb %>% filter(Model == 'GPT2 base') %>% select(diff_base_emb)
+
+#Test para ver si las dos muestras tienen la misma media.
+testModelos <- t.test( diff_base_emb_WL[,], diff_base_emb_viejo[,],alternative = 'greater',
+                       data = df, var.equal = TRUE)
+testModelos
+
+diff_base_humanos<- rbind(df %>% filter(Model == "GPT2 WordLevel") %>% select(diff_base1)%>% rename(diff_base = diff_base1),
+                          df %>% filter(Model == "GPT2 WordLevel") %>% select(diff_base2) %>% rename(diff_base = diff_base2)) %>% 
+  select(diff_base)
+
+#Test para ver si las muestras de sesgo del modelo con humanos son iguales o distintas.
+testWLHumano <- t.test(diff_base_emb_WL[,], diff_base_humanos[,], var.equal = TRUE)
+testWLHumano
+
+testBaseHumano <- t.test(diff_base_emb_viejo[,], diff_base_humanos[,], var.equal = TRUE)
+testBaseHumano
+
+#Man Whistney
+
+#Plotar distribuciones
+
+ggplot() + 
+  geom_density(data = diff_base_emb_viejo, aes(x = diff_base_emb, fill = "base"), alpha = 0.5) +
+  geom_density(data = diff_base_emb_WL, aes(x = diff_base_emb, fill = "Word Level"), alpha = 0.5) +
+  scale_fill_manual(values = c("base" = "red", "Word Level" = "blue"), name = "Model") +
+  labs(title = "Density Plots", x = "Diferencia de embeddings base y significado", y = "Density") 

@@ -1,0 +1,5 @@
+,wordID,meaningID,contextID,combinationID,target,significado,oracion,Contexto
+0,0,1,3,3100,raya,"[('raya', 1)]",la raya, 
+1,0,1,1,1100,raya,"[('raya', 1)]",la raya, 
+2,0,2,3,3200,raya,"[('raya', 1)]",la raya, 
+3,0,2,2,2200,raya,"[('raya', 1)]",la raya, 
