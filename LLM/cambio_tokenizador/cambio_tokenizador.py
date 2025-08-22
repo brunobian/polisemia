@@ -82,7 +82,9 @@ parser.add_argument('--batch_size', type=int, default=4, help='predict & backpro
 args = parser.parse_args()
 
 #CHECKPOINT = 'openai-gpt'
-CHECKPOINT = "/data/brunobian/languageModels/clm-spanish"
+#CHECKPOINT = "/data/brunobian/languageModels/clm-spanish"
+# lo defini local para probar
+CHECKPOINT = "/home/Estudiante/Documentos/valen/"
 UNK = '<unk>'
 COMMA = '<comma>'
 DOT = '<dot>'
@@ -90,12 +92,13 @@ DOT = '<dot>'
 BLOCK = args.tgt_len+1 # this is actually the length of "BPTT", in tokens
 
 # Specify the path to the "Tesis" folder in your Google Drive
-local_dataset_path = '/data/brunobian/Documents/Repos/Repos_Analisis/polisemia/LLM/data/'
-
+#local_dataset_path = '/data/brunobian/Documents/Repos/Repos_Analisis/polisemia/LLM/data/'
+# lo defini local para probar
+local_dataset_path = '/home/Estudiante/Escritorio/valen/'
 # Load the dataset from local storage
 #wikitext_dataset = load_from_disk(local_dataset_path)
 wikitext_dataset = load_dataset('large_spanish_corpus', name='all_wikis', cache_dir= local_dataset_path,
-                                split='train[:15%]', trust_remote_code=True)
+                                split='train[:1%]', trust_remote_code=True)
 #wikitext_dataset.save_to_disk(local_dataset_path)
 # Build up vocabulary
 vocab = set()
@@ -161,34 +164,39 @@ lm_datasets = dataset
 #model = AutoModelForCausalLM.from_pretrained(CHECKPOINT, device_map="auto")
 #tokenizer = AutoTokenizer.from_pretrained(CHECKPOINT, use_fast=True)
 #TODO Implementar para Llama-2
-model = GPT2LMHeadModel.from_pretrained('DeepESP/gpt2-spanish')
-tokenizer = GPT2Tokenizer.from_pretrained('DeepESP/gpt2-spanish', use_fast= True)
+#model = GPT2LMHeadModel.from_pretrained('DeepESP/gpt2-spanish')
+#tokenizer = GPT2Tokenizer.from_pretrained('DeepESP/gpt2-spanish', use_fast= True)
+model = AutoModelForCausalLM.from_pretrained( 'Qwen/Qwen2.5-0.5B', device_map="auto", torch_dtype=torch.bfloat16)
+tokenizer = AutoTokenizer.from_pretrained( 'Qwen/Qwen2.5-0.5B', use_fast=True)
 
 # -- INICIALIZA LOS EMBEDDINGS DE LAS PALABRAS NUEVAS CON EL PROMEDIO DE LOS TOKENS SUBPALABRA ORIGINALES --
 # interpolate BPE
-embs = torch.zeros((len(vocab), model.config.n_embd)) # Creando nueva matriz de embeddings, por ahora en cero
-for c, w in enumerate(vocab): # Recorre la lista de palabras nuevas (vocab)
-    ids = tokenizer(' ' + w)['input_ids'] # Aca le agrega un espacio adelante porque el tokenizador de GPT2 funciona asi
+embs = torch.zeros((len(vocab), model.config.hidden_size))
+for c, w in enumerate(vocab):
+    ids = tokenizer(w, add_special_tokens=False)['input_ids']
     if len(ids) == 0:
         print('zeroed', w)
         continue
-    subembs = torch.stack([model.transformer.wte.weight.data[i] for i in ids], axis = 0) # trae de el modelo los embeddings estáticos
-    embs[c] = torch.mean(subembs, axis = 0) # Creo el embedding nuevo con el promedio de los embeddings subpalabra
+    subembs = torch.stack([model.model.embed_tokens.weight.data[i] for i in ids], dim=0)
+    embs[c] = torch.mean(subembs, axis=0)
 
 # TODO: a mano buscar el embedding de punto y de coma original para meterlo en las pos de <dot> y <comma>
 
 #embs[vocab.index(UNK)] = model.transformer.wte.weight.data[tokenizer.vocab[tokenizer.unk_token]]
 tokenizer_vocab = tokenizer.get_vocab()
-embs[vocab.index(UNK)] = model.transformer.wte.weight.data[tokenizer_vocab[tokenizer.unk_token]]
-embs[vocab.index(COMMA)] = model.transformer.wte.weight.data[tokenizer_vocab[',']]
-embs[vocab.index(DOT)] = model.transformer.wte.weight.data[tokenizer_vocab['.']]
+# no existe el token UNK en Qwen.  ChatGPT me sugiere definirlo como 0 
+embs[vocab.index(UNK)] = torch.zeros_like(embs[0])
+#embs[vocab.index(UNK)] = model.model.embed_tokens.weight.data[tokenizer_vocab[tokenizer.unk_token]]
+embs[vocab.index(COMMA)] = model.model.embed_tokens.weight.data[tokenizer_vocab[',']]
+embs[vocab.index(DOT)] = model.model.embed_tokens.weight.data[tokenizer_vocab['.']]
+
 #assert len(set(embs)) == len(vocab)
 
 # update embedding layer
-print('Previous vocab size:', model.transformer.wte.weight.shape[0])
-model.resize_token_embeddings(len(vocab)) # achica o agranda la capa de embedggins para que tenga la dimension nueva
-model.transformer.wte.weight.data.copy_(embs) # mete los embeddings calculados como promedio en la capa de embeddings (pisa todo)
-print('New vocab size:', model.transformer.wte.weight.shape[0])
+print('Previous vocab size:', model.model.embed_tokens.weight.shape[0])
+model.resize_token_embeddings(len(vocab))
+model.model.embed_tokens.weight.data.copy_(embs)
+print('New vocab size:', model.model.embed_tokens.weight.shape[0])
 #print(model.transformer.wte.weight.data)
 #print(model.lm_head.weight.data)
 
@@ -221,8 +229,7 @@ lm_datasets = DatasetDict({
 training_args = TrainingArguments(
     str(model_save_path),
     seed = 42,
-    evaluation_strategy = "epoch",
-
+    eval_strategy = "epoch",
     learning_rate=args.lr,
     warmup_ratio = 0.2,
     per_device_train_batch_size = args.batch_size,
